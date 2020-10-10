@@ -53,6 +53,8 @@ def gcd(a,b,returnSteps=False,modOperation = modi):
 	b = abs(b)
 	currentA = max(a,b)
 	currentB = min(a,b)
+	if currentB == 0:
+		return currentA
 	if(returnSteps):
 		steps = [(currentA,currentB)]
 	rem = modOperation(currentA,currentB)
@@ -66,6 +68,38 @@ def gcd(a,b,returnSteps=False,modOperation = modi):
 		steps.append((currentB,rem))
 		return currentB,steps
 	return currentB
+
+def ext_eucl(a,b,returnSteps=False):
+	modOperation = modi
+	a = abs(a)
+	b = abs(b)
+	currentA = a
+	currentB = b
+	cardca = (1,0)
+	cardcb = (0,1)
+	if currentB == 0:
+		return currentA,cardca
+	if currentA == 0:
+		return currentB,cardcb
+	if(returnSteps):
+		steps = []
+	rem = modOperation(currentA,currentB)
+	while(rem != 0):
+		k = currentA//currentB
+		cardcc = (cardca[0]-k*cardcb[0],cardca[1]-k*cardcb[1])
+		if(returnSteps):
+			steps.append((currentA,cardca,currentB,cardcb,rem,cardcc,k))
+		cardca = cardcb
+		cardcb = cardcc
+		currentA = abs(currentB)
+		currentB = abs(rem)
+		rem = modOperation(currentA,currentB)
+	if(returnSteps):
+		k = int(currentA/currentB)
+		cardcc = (cardca[0]-k*cardcb[0],cardca[1]-k*cardcb[1])
+		steps.append((currentA,cardca,currentB,cardcb,rem,cardcc,k))
+		return currentB,cardcb,steps
+	return currentB,cardcb
 
 def primes(n):
 	if n <= 1000:
@@ -171,7 +205,7 @@ def mr_is_probprime(n,nbases=None):
 	#if we didn't fail yet it's probably prime
 	return True
 	
-def isprime(n,primes_to_rootn=None,ret_ptrn=False,nbases=5,definite=False):
+def isprime(n,primes_to_rootn=None,ret_ptrn=False,nbases=None,definite=False):
 	mr = IntegerModRing(n,n_is_prime=False)#obviously n may be prime but this is a code thing
 	if n < 2:
 		return ipret(False,ret_ptrn,primes_to_rootn)
@@ -193,31 +227,35 @@ def isprime(n,primes_to_rootn=None,ret_ptrn=False,nbases=5,definite=False):
 	
 	return ipret(True,ret_ptrn,primes_to_rootn)
 
-def next_prime(n):
+def next_prime(n,check_n=False,**kwargs):
+	if check_n:
+		if isprime(n,**kwargs):
+			return n
 	if n < 2:
 		return 2
 	if n == 2:
 		return 3
 	p = n + (1 if (n % 2) == 0 else 2)
-	primes_to_root = primes(int(np.ceil(np.sqrt(p))))
-	p_is_prime,primes_to_root = isprime(p,primes_to_root,True)
+	p_is_prime = isprime(p,**kwargs)
 	while not p_is_prime:
 		p += 2
-		p_is_prime,primes_to_root = isprime(p,primes_to_root,True)
+		p_is_prime = isprime(p,**kwargs)
 	return p
 	
 
-def prev_prime(n):
-	if n <= 2:
+def prev_prime(n,check_n=False,**kwargs):
+	if check_n:
+		if isprime(n, **kwargs):
+			return n
+	if n < 2:
 		return None
-	if n == 3:
+	if n == 2:
 		return 2
 	p = n - (1 if (n % 2) == 0 else 2)
-	primes_to_root = primes(int(np.ceil(np.sqrt(p))))
-	p_is_prime,primes_to_root = isprime(p,primes_to_root,True)
+	p_is_prime = isprime(p, **kwargs)
 	while not p_is_prime:
 		p -= 2
-		p_is_prime,primes_to_root = isprime(p,primes_to_root,True)
+		p_is_prime = isprime(p, **kwargs)
 	return p
 
 def primitive_root(p):
@@ -285,7 +323,7 @@ def gauss_invert(a,p):
 	return inv_acc
 
 class ModInteger:
-	def __init__(self, x, n, n_is_prime=None, phi_n=None):
+	def __init__(self, x, n, n_is_prime=False, phi_n=None):
 		if type(x) == ModInteger:#if we were created automatically
 			self.x = x.x
 		else:
@@ -336,38 +374,23 @@ class ModInteger:
 	
 	def __floordiv__(self,other):
 		other = self.pairwise_check(other)
-		
-		if gcd(other.x,other.n) != 1:
-			raise AttributeError("Dividend and modulus not coprime -- solutions will not be unique")
-		
-		#find y such that other*y == self
-		#brute force is exptime. we need to do something better than that
-		if self.n_is_prime:
-			#find other inverse
-			oinv = gauss_invert(other.x,self.n)
-			#multiply by that
-			return self * oinv
-		elif self.phi_n is not None:
-			#we can use exponentiation to find the inverse using euler's thm
-			#euler's thm says that if gcd(n,a) = 1 then a^(phi(n)) = 1 mod n
-			#this means that a*a^(phi(n)-1) = 1 mod n
-			#and therefore that a^(-1) = a^(phi(n)-1) mod n
-			oinv = other**(self.phi_n - 1)
-			return self* oinv
-		else:
-			y = ModInteger(0,self.n,self.n_is_prime,self.phi_n)
-			while (other*y) != self:
-				y = y + 1
 
-			return y
+		#try running ext eucl to find an inverse, if we find that gcd(other,self) is not 1 then it won't work anyway
+		g,(l,_) = ext_eucl(other.x,other.n)
+		if g != 1:
+			raise AttributeError("Dividend and modulus not coprime -- solutions will not be unique")
+		#if we are coprime then l is our inverse
+
+		return self * l
 		
-	
 	def __truediv__(self,other):
 		return self.__floordiv__(other)
 	
 	def __pow__(self,p:int):
 		if p == 0:
-			return ModInteger(1,self.n,self.n_is_prime)
+			return ModInteger(1,self.n,self.n_is_prime,self.phi_n)
+		if p < 0:
+			return (ModInteger(1,self.n,self.n_is_prime,self.phi_n)/self)**(-p)#a^(-p) = (a^(-1))^p
 		return ping(self,p,self.n)
 
 '''
@@ -406,7 +429,7 @@ g primitive root mod p
 h in Z/pZ
 n is number of trials
 '''
-def bday_attack(p,g,h,n=None):
+def bday_attack_disclog(p,g,h,n=None):
 	if n is None:
 		n = int(np.sqrt(p) * 1.25)
 	mr = IntegerModRing(p)
@@ -438,21 +461,42 @@ def bday_attack(p,g,h,n=None):
 	
 	if g_exp is not None:
 		return ModInteger(g_exp,p-1)+gh_exp
-	
+
+def ascii_to_nums(s,block_size,phi_n=None):
+	mr = IntegerModRing(block_size,phi_n=phi_n)
+	i_block_width = 3#technically floor(log10(256))+1 but that's just 3
+	s_block_width = (int(math.log10(block_size)) + 1) // i_block_width
+	m_nums = []
+	for chsq in [s[i:i + s_block_width] for i in range(0, len(s), s_block_width)]:
+		nums_this = ''
+		for ch in chsq:
+			tmp_chord = str(ord(ch))
+			tmp_chord = ('0' * (i_block_width - len(tmp_chord))) + tmp_chord
+			nums_this += tmp_chord
+		m_nums.append(mr(int(nums_this)))
+	return m_nums
+
+def nums_to_ascii(nums,block_size):
+	msg = ''
+	i_block_width = 3  # technically floor(log10(256))+1 but that's just 3
+	s_block_width = (int(math.log10(block_size)) + 1) // i_block_width
+	for num in nums:
+		#pad with zeroes
+		numst = str(num)
+		while (len(numst) % i_block_width) != 0:
+			numst = '0' + numst
+		for chsq in [numst[i:i+i_block_width] for i in range(0,len(numst),i_block_width)]:
+			numv = int(chsq)
+			msg += chr(numv)
+	return msg
+
 	
 def el_gamal_enc(p,g,msg,pub_key):
 	mr = IntegerModRing(p)
 	g = mr(g)
 	
 	#convert msg into numbers
-	m_nums = []
-	for chsq in [msg[i:i+2] for i in range(0,len(msg),2)]:
-		nums_this = ''
-		for ch in chsq:
-			tmp_chord = str(ord(ch))
-			tmp_chord = ('0'*(3 - len(tmp_chord))) + tmp_chord
-			nums_this += tmp_chord
-		m_nums.append(mr(int(nums_this)))
+	m_nums = ascii_to_nums(msg,p)
 	
 	#do all the mults
 	rts = []
@@ -470,24 +514,17 @@ def el_gamal_enc(p,g,msg,pub_key):
 '''
 m = t*r^(-a)
 '''
-def el_gamal_dec(p,g,rts,a,print_chvals=False):
+def el_gamal_dec(p,rts,a,print_chvals=False):
 	mr = IntegerModRing(p)
-	g = mr(g)
 	rts = [(mr(r),mr(t)) for r,t in rts]
 	
-	msg = ''
 	ma = p-1-a
+	nums = []
 	for r,t in rts:
 		m = t*r**(ma)
 		#make this into a string, zero-pad, and convert to ascii
-		m = str(m.x)
-		while len(m) % 3 != 0:
-			m = '0' + m
-		for chsq in [m[i:i+3] for i in range(0,len(m),3)]:
-			if print_chvals:
-				print(chsq)
-			msg += chr(int(chsq))
-	return msg
+		nums.append(m.x)
+	return nums_to_ascii(nums,p)
 	
 
 def freq_hist(dat,base_alphabet=None,normed=False):
@@ -670,3 +707,159 @@ def print_all_caesars(ctxt):
 	#just show me all the possibilities
 	for key in ENGL_FREQ_DICT:
 		print(caesar_dec(ctxt,key))
+
+"""
+RSA
+"""
+
+def RSA_keygen_dec(prime_digits):
+	return RSA_keygen(int(prime_digits*(1/np.log10(2))))
+
+
+'''
+get a random prime that is at least this big and at most this big
+'''
+def get_prime_factor(width):
+	#build a random number that is that wide
+	rn = '1'
+	for _ in range(width-2):
+		rn += np.random.choice(['0','1'])
+
+	rn += '1'
+	rn = int(rn,base=2)
+	#find the next prime (including rn)
+	return next_prime(rn,check_n=True)
+
+
+'''
+figure out a large prime factor, then multiply it by another integer and add 1 and see if we get a prime
+'''
+def make_large_prime(prime_bits,exclude=0,max_iterations=100):
+	for _ in range(max_iterations):
+		# pick random prime greater than root(p-1)
+		phi_pm1_large_fac = get_prime_factor(prime_bits-1)
+		for k in PRIMES_1K[:5]:
+			p = (phi_pm1_large_fac*k) + 1
+			if (p != exclude) and isprime(p):
+				return p,phi_pm1_large_fac,k
+	raise AttributeError('{} iterations insufficient'.format(max_iterations))
+
+
+def RSA_keygen(prime_bits):
+	#now make p and q
+	p,pm1_large_fac,pm1_small_fac = make_large_prime(prime_bits)
+	q,qm1_large_fac,qm1_small_fac = make_large_prime(prime_bits,exclude=p)
+	#pick random d (invertible mod (p-1)(q-1))
+	phi_n = (p-1)*(q-1)
+	d = random.randint(2,(p-1)*(q-1))
+	while not gcd(phi_n,d) == 1:
+		d = random.randint(2, (p - 1) * (q - 1))
+	#e is its inverse
+	e = ModInteger(1,phi_n,n_is_prime=False)/d
+	print('p={}'.format(p))
+	print('q={}'.format(q))
+	return (d,(p*q,e.x))
+
+
+'''
+both encrypt and decrypt use this
+
+msg is a list of integers
+'''
+def RSA_en_decrypt(msg,de,n):
+	mr = IntegerModRing(n,n_is_prime=False)
+	nums = [(mr(x)**de).x for x in msg]#actual de/encryption
+	return nums
+
+'''
+dealing with string stuff necessitates this
+'''
+def RSA_encrypt(msg,e,n):
+	nums = ascii_to_nums(msg,n)
+	nums = RSA_en_decrypt(nums,e,n)
+	return nums
+
+def RSA_decrypt(nums,d,n):
+	nums = RSA_en_decrypt(nums,d,n)
+	return nums_to_ascii(nums,n)
+
+"""
+END RSA
+"""
+
+'''
+p-minus-one factoring method (in class 2020-10-09)
+'''
+def pm1_factor(n,B_init=None,max_iterations=100,B_inc=None):
+	if B_init is None:
+		B_init = int(n**(1/6))+1
+	if B_inc is None:
+		B_inc = int(((n**(1/6))+1)/8)
+	mr = IntegerModRing(n)
+	#similar to MR
+	#pick a in Z/nZ>1
+	a = mr(2)#maybe pick something else? wiki says it doesn't matter as long as n is odd (if it isn't it's probably not that hard to factor)
+	B = B_init
+	for _ in range(max_iterations):
+		#compute a chain mod n of
+			#a -sq-> a^2 -qbe-> a^(2*3) -...-> a^(B!) =: b
+		b = a*a
+		for exp in range(2,B):
+			b = b**exp
+		#try d = gcd(b-1,n) (check if this is nontrivial, repeat if it isn't
+		d = gcd(b.x-1,n)
+		if d == n:
+			if B <= 2:
+				return None
+			B -= B_inc
+		elif d == 1:
+			if B >= n:
+				return None
+			B += B_inc
+		else:
+			return d,n//d
+
+'''
+domain-specific attack
+'''
+def ten_dig_RSA_attack(n,digits):
+	#start with the first possible (k digit) prime
+	p = next_prime(10**(digits-1)+1,check_n=True)
+	bound = int(10**(digits)) >> 1
+	while ((n % p) != 0) and (p < bound):
+		#increase p and try again
+		p = next_prime(p)
+	return p,(n//p)
+
+def trial_division_RSA(n):
+	#start with the first possible (k digit) prime
+	p = int(math.sqrt(n)+1)
+	while (p > 0) and ((n % p) != 0):
+		#increase p and try again
+		p -= 2
+	return p,(n//p)
+
+'''
+sounds great, doesn't work
+'''
+def bday_attack_RSA(c,n,e,list_size=None,B=256,root_coef=1.25):
+	rB = int(np.sqrt(B)*root_coef)
+
+	mr = IntegerModRing(n)
+	c = mr(c)
+
+	if list_size is None:
+		#just do all up to root B
+		xs = {(c * x ** (-e)).x:x for x in range(2,rB)}
+		ys = {(mr(y) ** (e)).x:y for y in range(2,rB)}
+	else:
+		xs = {(c * x ** (-e)).x for x in [random.randint(2, rB) for _ in range(list_size)]}
+		ys = {(mr(y) ** (e)).x:y for y in [random.randint(2, rB) for _ in range(list_size)]}
+
+	for xr in xs:
+		if xr in ys:
+			#collision found
+			#c cong (xy)^e mod n
+			x = xs[xr]
+			y = ys[xr]
+			return (mr(x)*y)**e
