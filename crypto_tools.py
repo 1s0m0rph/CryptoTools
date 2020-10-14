@@ -3,6 +3,7 @@ BASIC NUMBER THEORY CODE
 """
 
 import numpy as np
+from sympy import Matrix
 import math
 import random
 
@@ -157,13 +158,10 @@ def ipret(truth_val,ret_ptrn,primes_to_rootn):
 		return truth_val
 
 '''
-miller-rabin test
+factorize n as 2^k * m with k maximal
 '''
-def mr_is_probprime(n,nbases=None):
-	mr = IntegerModRing(n,n_is_prime=False)#have to specify for the mis that n isn't prime so it doesn't check
-	#write n-1 = 2^k * m where m is odd
-	#take the binary expansion, k = number of zeroes at the end
-	nbin = list(reversed(bin(n-1)[2:]))
+def get_int_2km_fac(n,rw=False):
+	nbin = list(reversed(bin(n)[2:]))
 	nbwidth = len(nbin)
 	k = 0
 	while (len(nbin) > 0) and (nbin[0] == '0'):
@@ -171,7 +169,20 @@ def mr_is_probprime(n,nbases=None):
 		del nbin[0]
 	#remaining part is m
 	nbin = ''.join(reversed(nbin))
-	m = int(nbin,base=2)
+	m = int(nbin, base=2)
+	if rw:
+		return k,m,nbwidth
+	else:
+		return k,m
+
+'''
+miller-rabin test
+'''
+def mr_is_probprime(n,nbases=None):
+	mr = IntegerModRing(n,n_is_prime=False)#have to specify for the mis that n isn't prime so it doesn't check
+	#write n-1 = 2^k * m where m is odd
+	#take the binary expansion, k = number of zeroes at the end
+	k,m,nbwidth = get_int_2km_fac(n-1,rw=True)
 	#choose a base 1 < a < n
 	if nbases is None:
 		bases = primes(10 + (nbwidth>>1))#good enough for numbers well beyond 64 bits
@@ -392,6 +403,12 @@ class ModInteger:
 		if p < 0:
 			return (ModInteger(1,self.n,self.n_is_prime,self.phi_n)/self)**(-p)#a^(-p) = (a^(-1))^p
 		return ping(self,p,self.n)
+
+	def __hash__(self):
+		return hash(self.x)
+
+	def __int__(self):
+		return self.x
 
 '''
 sagelike conversion factory
@@ -788,6 +805,10 @@ END RSA
 """
 
 '''
+factoring
+'''
+
+'''
 p-minus-one factoring method (in class 2020-10-09)
 '''
 def pm1_factor(n,B_init=None,max_iterations=100,B_inc=None):
@@ -863,3 +884,143 @@ def bday_attack_RSA(c,n,e,list_size=None,B=256,root_coef=1.25):
 			x = xs[xr]
 			y = ys[xr]
 			return (mr(x)*y)**e
+
+'''
+not just the factor base, but we need it to have square roots for n modulo p
+also tell us what those roots are
+
+source for quadradic residues: Weissman pp 199
+'''
+def get_qs_factor_base(n,B,kmax):
+	ptb = primes(B)[1:]#2 sucks so we're not going to test it (it works as long as n is odd anyway)
+	if (n & 1) == 1:#2 works
+		fb = {(2,1):{ModInteger(1,2)}}
+		order = [(2,1)]  #what order do we go in when iterating through this
+		#2 will have to be done manually (i.e. no powers)
+	else:#2 doesn't work
+		fb = {}
+		order = []
+	for p in ptb:
+		#make sure n has a square root modulo p
+		#use euler criterion:
+		#a is square mod p iff a^((p-1)/2) == 1 mod p
+		nmp = ModInteger(n,p)
+		if (p % 4) == 3:
+			sqrt = nmp**((p+1)//4)
+			if sqrt**2 == nmp:
+				fb.update({(p,1):{sqrt,-sqrt}})
+		elif (p % 8) == 5:
+			#here there are actually (as many as) 4 sqrts
+			sqrt1 = nmp**((n+3)//8)
+			sqrt2 = nmp**((n+3)//8)*ModInteger(2,p)**((n-1)//4)
+			if sqrt1**2 == nmp:
+				fb.update({(p,1):{sqrt1,-sqrt1,sqrt2,-sqrt2}})
+		#else it's 1 mod 8 and no general form solution exists, so let's just pretend this number doesn't exist
+
+		if (p,1) in fb:
+			#now modify the sieve so that we don't have to do any trial division
+			#this means we need to add powers of the primes in, which can be done using hensel's lemma
+			#we'll have solutions of the form s = r - (r^2 - n)*a mod p^k+1 where a == (2r)^-1 mod p
+			#we only have to do this until p^k > kmax
+			k = 2
+			npki = p**2
+			inv_mod_p = {}#just for efficiency's sake (caching)
+			order.append((p,1))
+			while npki <= kmax:
+				order.append((p,k))
+				fb.update({(p,k):set()})
+				for sqrt in fb[(p,k-1)]:
+					#add on a root mod p^k = npki
+					#first find a
+					ntinv = ModInteger(sqrt.x,p)*2
+					if ntinv.x in inv_mod_p:
+						a = inv_mod_p[ntinv.x]
+					else:
+						a = (ntinv**(-1)).x
+						inv_mod_p.update({ntinv.x:a})
+
+					#now find s
+					s = ModInteger(sqrt,npki) - ModInteger(a,npki)*(sqrt.x**2 - n)
+					fb[(p,k)].add(s)
+				npki *= p
+				k += 1
+
+	return fb,order
+
+
+'''
+quadratic sieve implementation
+'''
+def quad_sieve(n,B,kmin=None,knum=None):
+	if kmin is None:
+		kmin = int(np.ceil(np.sqrt(n)))
+	if knum is None:
+		knum = B
+	kmax = kmin + knum
+	fb,order = get_qs_factor_base(n,B,kmax)#includes primes with roots as well as their powers up to kmin+knum
+	facts = {k:None for k in range(kmin,kmax+1)}#maps k onto factorization if and only if k^2 is B-smooth with this factor base
+	for i,(p,e) in enumerate(order):
+		pe = p**e
+		k_start = kmin//pe
+		offset = pe*k_start#0 mod p^e
+		while offset < kmax:
+			for sqrt in fb[(p,e)]:
+				nkeep = offset + sqrt.x
+				target = nkeep**2 - n
+				if (nkeep in facts) and (target >= pe):
+					if facts[nkeep] is None:
+						facts[nkeep] = [{p:0 for _ in range(p)},1,False]#(exponents start all at 0,product so far,product at target)
+					if not facts[nkeep][2]:
+						if p not in facts[nkeep][0]:
+							facts[nkeep][0].update({p:0})
+						if p == 2:#2 has to go backwards because it is evil
+							k,rem = get_int_2km_fac(target)
+							facts[nkeep][0][2] = k
+							facts[nkeep][1] <<= k
+							if rem == 1:
+								facts[nkeep][2] = True
+						elif nkeep >= kmin:
+							facts[nkeep][0][p] += 1
+							facts[nkeep][1] *= p
+							if facts[nkeep][1] == target:
+								facts[nkeep][2] = True
+			offset += pe
+
+	facts = [[k,facts[k][0]] for k in facts if (facts[k] is not None) and (facts[k][2])]
+
+	#now that we have these, we can ACTUALLY factor n (probably)
+	#we need to find some combination of these vectors (i.e. the exponent vectors) that sums to 0 mod 2
+	#TODO https://en.wikipedia.org/wiki/Quadratic_sieve#Matrix_processing
+	seen_ones = {}
+	ps = list({p for p,_ in fb})
+	A = Matrix([[ModInteger(facts[i][1][p],2) if p in facts[i][1] else ModInteger(0,2) for i in range(len(facts))] for p in ps],dtype=int)
+	Z = A.nullspace()#finds many solutions simultaneously -- just pick the first one
+	if len(Z) == 0:
+		raise AttributeError("No solutions found, try increasing B")
+	sol = set()
+	for i,x in enumerate(Z[0]):
+		if ModInteger(int(x),2) == 1:
+			sol.add(i)
+
+
+
+	#now we should have some y such that y^2 == x^2 mod n
+	#find x and y
+	x = ModInteger(1,n)
+	yexps = {p:0 for p in ps}
+	for i in sol:
+		x *= facts[i][0]#x multiplies by k
+		for p in facts[i][1]:
+			yexps[p] += facts[i][1][p]
+	y = ModInteger(1,n)
+	for p in ps:
+		y *= ModInteger(p,n)**(yexps[p]//2)
+
+	fac = gcd((x-y).x,n)
+	return fac,n//fac
+
+
+
+'''
+END FACTORING
+'''
