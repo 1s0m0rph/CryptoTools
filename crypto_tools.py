@@ -50,6 +50,8 @@ def modi(a,n):
 	return a % n
 
 def gcd(a,b,returnSteps=False,modOperation = modi):
+	if type(a) == FiniteFieldPoly:
+		return FFP_ext_eucl(a,b,just_gcd=True)
 	a = abs(a)
 	b = abs(b)
 	currentA = max(a,b)
@@ -71,6 +73,8 @@ def gcd(a,b,returnSteps=False,modOperation = modi):
 	return currentB
 
 def ext_eucl(a,b,returnSteps=False):
+	if type(a) == FiniteFieldPoly:
+		return FFP_ext_eucl(a,b,just_gcd=False)
 	modOperation = modi
 	a = abs(a)
 	b = abs(b)
