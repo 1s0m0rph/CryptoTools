@@ -1180,7 +1180,7 @@ class FiniteFieldPoly:
 		lcdmi = other.coef[0]**(-1)#leading coef of the divisor (multiplicative inverse mod p)
 		q = FiniteFieldPoly(self.p,0,self.n)
 		r = self
-		while r.dgr >= other.dgr:
+		while (r.dgr >= other.dgr) and (r != 0):
 			#take the highest-order term (coefficient) from a
 			c = r.coef[0]*lcdmi#MI division (using multiplicative inverse mod p)
 			#multiply by 1<<i to obtain the add to q
@@ -1196,6 +1196,44 @@ class FiniteFieldPoly:
 
 	def __truediv__(self, other):
 		return self.__floordiv__(other)
+
+def FiniteField(p,**kwargs):
+	def gffp(coef):
+		return FiniteFieldPoly(p,coef,**kwargs)
+
+	return gffp
+
+'''
+solve the the linear diophantine equation in Fp[x]:
+	a(x)s(x) + b(x)t(x) = gcd(a(x),b(x))
+'''
+def FFP_ext_eucl(a,b,just_gcd=False):
+	assert(a.p == b.p)
+	assert(a.n == b.n)
+	ff = FiniteField(a.p)
+	acard = (ff(1),ff(0))#how do we produce a?
+	bcard = (ff(0),ff(1))#how do we produce b?
+
+	q,r = a/b
+	ccard = (acard[0] - q*bcard[0],acard[1] - q*bcard[1])
+	acard = bcard
+	bcard = ccard
+	a = b
+	b = r
+
+	while r != 0:
+		q, r = a/b
+		ccard = (acard[0]-q*bcard[0], acard[1]-q*bcard[1])
+		acard = bcard
+		bcard = ccard
+		a = b
+		b = r
+
+	if just_gcd:
+		return a
+	else:
+		return a,acard
+
 
 '''
 END FINITE FIELDS

@@ -26,71 +26,106 @@ class TestFiniteFieldPoly(TestCase):
 
 	def test_add(self):
 		p = 7
-		ax = FiniteFieldPoly(p,[4,2,3])
-		bx = [9,10,11]
+		a = FiniteFieldPoly(p,[4,2,3])
+		b = [9,10,11]
 
-		assert((ax + bx) == [6,5,0])
-		bx = [1,1]
-		assert((ax + bx) == [4,3,4])
+		assert((a + b) == [6,5,0])
+		b = [1,1]
+		assert((a + b) == [4,3,4])
 
 	def test_eq(self):
 		p = 7
-		ax = FiniteFieldPoly(p, [4, 2, 3])
-		bx = [9, 10, 11]
+		a = FiniteFieldPoly(p, [4, 2, 3])
+		b = [9, 10, 11]
 
-		assert(ax != bx)
-		bx = [7+4,21+2,14+3]
-		assert(ax == bx)
+		assert(a != b)
+		b = [7+4,21+2,14+3]
+		assert(a == b)
 
 	def test_neg(self):
 		p = 7
-		ax = FiniteFieldPoly(p, [4, 2, 3])
-		bx = [3, 5, 4]
-		assert((-ax) == bx)
+		a = FiniteFieldPoly(p, [4, 2, 3])
+		b = [3, 5, 4]
+		assert((-a) == b)
 
 	def test_sub(self):
 		p = 7
-		ax = FiniteFieldPoly(p, [4, 2, 3])
-		bx = FiniteFieldPoly(p,[9, 10, 11])#2,3,4
+		a = FiniteFieldPoly(p, [4, 2, 3])
+		b = FiniteFieldPoly(p,[9, 10, 11])#2,3,4
 
-		assert((ax - bx) == [2,-1,-1])
-		assert((bx-ax) == [-2,1,1])
+		assert((a - b) == [2,-1,-1])
+		assert((b-a) == [-2,1,1])
 
 	def test_mul(self):
 		p = 7
-		ax = FiniteFieldPoly(p, [5, 6, 1])
-		bx = FiniteFieldPoly(p, [1, 2, 0, 5])
+		a = FiniteFieldPoly(p, [5, 6, 1])
+		b = FiniteFieldPoly(p, [1, 2, 0, 5])
 
-		axbx = ax*bx
-		assert(np.all(axbx.coef == [5,2,6,6,2,5]))
+		ab = a*b
+		assert(np.all(ab.coef == [5,2,6,6,2,5]))
 
-		bx = FiniteFieldPoly(p, [1, 1, 1, 1])
+		b = FiniteFieldPoly(p, [1, 1, 1, 1])
 
-		axbx = ax*bx
-		assert(np.all(axbx.coef == [5,11,12,12,7,1]))
+		ab = a*b
+		assert(np.all(ab.coef == [5,11,12,12,7,1]))
 
-		bx = FiniteFieldPoly(p, [2,1])
+		b = FiniteFieldPoly(p, [2,1])
 
-		axbx = bx*ax
-		assert(np.all(axbx.coef == [10,17,8,1]))
+		ab = b*a
+		assert(np.all(ab.coef == [10,17,8,1]))
 
 	def test_div(self):
 		p = 7
-		ax = FiniteFieldPoly(p, [1, 2, 0, 5])
-		bx = FiniteFieldPoly(p, [5, 6, 1])
+		a = FiniteFieldPoly(p, [1, 2, 0, 5])
+		b = FiniteFieldPoly(p, [5, 6, 1])
 
-		q,r = ax//bx
-		qbx = q*bx
-		qbxr = qbx + r
-		assert(qbxr == ax)
+		q,r = a//b
+		qb = q*b
+		qbr = qb + r
+		assert(qbr == a)
 
 		p = 2
-		ax = FiniteFieldPoly(p, [1, -2, 0, -4])
-		bx = FiniteFieldPoly(p, [1, -3])
+		a = FiniteFieldPoly(p, [1, -2, 0, -4])
+		b = FiniteFieldPoly(p, [1, -3])
 
-		q, r = ax//bx
-		qbx = q*bx
-		qbxr = qbx+r
-		assert (qbxr == ax)
+		q, r = a//b
+		qb = q*b
+		qbr = qb+r
+		assert (qbr == a)
 		assert(q == [1,1,3])
 		assert(r == [5])
+
+		p = 5
+		a = FiniteFieldPoly(p, [3, 0])
+		b = FiniteFieldPoly(p, [2])
+
+		q, r = a//b
+		qb = q*b
+		qbr = qb+r
+		assert(qbr == a)
+		assert(q == [4,0])
+		assert(r == 0)
+		
+		
+	def test_ext_eucl(self):
+		p = 5
+		a = FiniteFieldPoly(p, [3,0,4,1])
+		b = FiniteFieldPoly(p, [2,2,2])
+		
+		gcd,(s,t) = FFP_ext_eucl(a,b)
+		assert(gcd == 2)
+		ats = a*s
+		btt = b*t
+		sm = ats+btt
+		assert(sm == gcd)
+
+		p = 3
+		a = FiniteFieldPoly(p, [1, 0, 0, 1, 1])
+		b = FiniteFieldPoly(p, [1, 0, 1])
+
+		gcd, (s, t) = FFP_ext_eucl(a, b)
+		assert (gcd == 2)
+		ats = a*s
+		btt = b*t
+		sm = ats+btt
+		assert (sm == gcd)
