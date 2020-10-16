@@ -26,7 +26,7 @@ class TestFiniteFieldPoly(TestCase):
 
 	def test_add(self):
 		p = 7
-		a = FiniteFieldPoly(p,[4,2,3])
+		a = FiniteFieldPoly(p, [4, 2, 3])
 		b = [9,10,11]
 
 		assert((a + b) == [6,5,0])
@@ -51,7 +51,7 @@ class TestFiniteFieldPoly(TestCase):
 	def test_sub(self):
 		p = 7
 		a = FiniteFieldPoly(p, [4, 2, 3])
-		b = FiniteFieldPoly(p,[9, 10, 11])#2,3,4
+		b = FiniteFieldPoly(p, [9, 10, 11])  #2,3,4
 
 		assert((a - b) == [2,-1,-1])
 		assert((b-a) == [-2,1,1])
@@ -69,7 +69,7 @@ class TestFiniteFieldPoly(TestCase):
 		ab = a*b
 		assert(np.all(ab.coef == [5,11,12,12,7,1]))
 
-		b = FiniteFieldPoly(p, [2,1])
+		b = FiniteFieldPoly(p, [2, 1])
 
 		ab = b*a
 		assert(np.all(ab.coef == [10,17,8,1]))
@@ -109,8 +109,8 @@ class TestFiniteFieldPoly(TestCase):
 		
 	def test_ext_eucl(self):
 		p = 5
-		a = FiniteFieldPoly(p, [3,0,4,1])
-		b = FiniteFieldPoly(p, [2,2,2])
+		a = FiniteFieldPoly(p, [3, 0, 4, 1])
+		b = FiniteFieldPoly(p, [2, 2, 2])
 		
 		gcd,(s,t) = FFP_ext_eucl(a,b)
 		assert(gcd == 2)

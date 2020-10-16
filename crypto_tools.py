@@ -1038,17 +1038,8 @@ FFP_SS_TRANS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")#https:
 
 class FiniteFieldPoly:
 
-	"""
-	n is optional finite field modulus which should be an FFP with the same p
-	"""
-	def __init__(self,p:int,coef,n=None):
+	def __init__(self, p: int, coef):
 		self.p = p
-		self.n = n
-		if n is not None:
-			raise NotImplementedError("Finite field moduli not yet implemented")
-			assert(type(n) == FiniteFieldPoly)
-			assert(n.p == p)
-			assert(n.n is None)
 		#build c, being careful with typing
 		if type(coef) in [int,ModInteger]:
 			self.coef = np.array([ModInteger(coef,p,n_is_prime=True)])
@@ -1069,15 +1060,8 @@ class FiniteFieldPoly:
 
 	def pairwise_check(self,other):
 		if type(other) != FiniteFieldPoly:
-			other = FiniteFieldPoly(self.p,other,self.n)
+			other = FiniteFieldPoly(self.p, other)
 			return other,self.ext_low_degree(other)#all checks will succeed this way, so don't do them
-		if self.n is not None:
-			if other.n is None:
-				raise AttributeError('Trying to perform pairwise operation between polynomials mod n(x) and unmodded polynomials')
-			if not np.all(self.n == other.n):
-				raise AttributeError('Trying to perform pairwise operation on polynomials with different moduli')
-		elif other.n is not None:
-			raise AttributeError('Trying to perform pairwise operation between polynomials mod n(x) and unmodded polynomials')
 		return other,self.ext_low_degree(other)
 
 	def __repr__(self):
@@ -1089,10 +1073,7 @@ class FiniteFieldPoly:
 
 		fnst = fnst[:-3]#drop last +
 
-		if self.n is None:
-			return "F{}: {}".format(self.p,fnst)
-		else:
-			return "F{}: {} (mod {})".format(self.p,fnst,self.n)
+		return "F{}: {} (mod {})".format(self.p,fnst,self.n)
 
 	def __eq__(self, other):
 		if type(other) not in [FiniteFieldPoly,int,list,set,np.array]:
@@ -1103,24 +1084,24 @@ class FiniteFieldPoly:
 
 	def __add__(self, other):
 		other,(ldgc_ext,hdgc,_) = self.pairwise_check(other)
-		return FiniteFieldPoly(self.p,ldgc_ext + hdgc,self.n)
+		return FiniteFieldPoly(self.p, ldgc_ext+hdgc)
 
 	def __neg__(self):
 		#just negate all the coefficients
-		return FiniteFieldPoly(self.p,-self.coef,self.n)
+		return FiniteFieldPoly(self.p, -self.coef)
 
 	def __sub__(self, other):
 		other, (ldgc_ext, hdgc,lis) = self.pairwise_check(other)
 		if lis:
-			return FiniteFieldPoly(self.p,ldgc_ext - hdgc,self.n)
+			return FiniteFieldPoly(self.p, ldgc_ext-hdgc)
 		else:
-			return FiniteFieldPoly(self.p,hdgc - ldgc_ext,self.n)
+			return FiniteFieldPoly(self.p, hdgc-ldgc_ext)
 
 	def __lshift__(self, other:int):
-		return FiniteFieldPoly(self.p,list(self.coef) + [0 for _ in range(other)],self.n)
+		return FiniteFieldPoly(self.p, list(self.coef)+[0 for _ in range(other)])
 
 	def __rshift__(self, other:int):
-		return FiniteFieldPoly(self.p,list(self.coef[other:]),self.n)
+		return FiniteFieldPoly(self.p, list(self.coef[other:]))
 
 	'''
 	happy happy fun times
@@ -1144,23 +1125,23 @@ class FiniteFieldPoly:
 	def __mul__(self, other):
 		if (type(other) in [ModInteger,int]):
 			#special case for scaling
-			return FiniteFieldPoly(self.p,self.coef*other,self.n)
+			return FiniteFieldPoly(self.p, self.coef*other)
 		other, (ldgc_ext, hdgc, _) = self.pairwise_check(other)
 		if len(other.coef) == 1:
-			return FiniteFieldPoly(self.p, (self*other.coef[0]).coef, self.n)
+			return FiniteFieldPoly(self.p, (self*other.coef[0]).coef)
 		if len(self.coef) == 1:
-			return FiniteFieldPoly(self.p, (other*self.coef[0]).coef, self.n)
+			return FiniteFieldPoly(self.p, (other*self.coef[0]).coef)
 		a = hdgc
 		b = ldgc_ext
 		if len(a) == 1:
-			return FiniteFieldPoly(self.p,[a[0] * b[0]],self.n)
+			return FiniteFieldPoly(self.p, [a[0]*b[0]])
 		#otherwise reduce with karatsuba
 		m = len(a) - 1
-		a0 = FiniteFieldPoly(self.p,a[1:],self.n)#drop the first one since that is a1
+		a0 = FiniteFieldPoly(self.p, a[1:])  #drop the first one since that is a1
 		a1 = a[0]
-		b0 = FiniteFieldPoly(self.p,b[1:],self.n)
+		b0 = FiniteFieldPoly(self.p, b[1:])
 		b1 = b[0]
-		z2 = FiniteFieldPoly(self.p,a1 * b1,self.n)#cheap and easy because a1 and b1 are just constants
+		z2 = FiniteFieldPoly(self.p, a1*b1)  #cheap and easy because a1 and b1 are just constants
 		z2scale = z2 << (2*m)#z2 * B^(2m)
 		z0 = a0*b0
 		z1 = (a0 - a1)*((-b0) + b1) + z2 + z0#this is not infinite since we've reduced the length for a1 and b1
@@ -1182,13 +1163,13 @@ class FiniteFieldPoly:
 
 
 		lcdmi = other.coef[0]**(-1)#leading coef of the divisor (multiplicative inverse mod p)
-		q = FiniteFieldPoly(self.p,0,self.n)
+		q = FiniteFieldPoly(self.p, 0)
 		r = self
 		while (r.dgr >= other.dgr) and (r != 0):
 			#take the highest-order term (coefficient) from a
 			c = r.coef[0]*lcdmi#MI division (using multiplicative inverse mod p)
 			#multiply by 1<<i to obtain the add to q
-			aq = (FiniteFieldPoly(self.p,1,self.n) << (r.dgr - other.dgr))*c
+			aq = (FiniteFieldPoly(self.p, 1)<<(r.dgr-other.dgr))*c
 			q += aq
 			#multiply by b to obtain this quotient
 			qt = other*aq
@@ -1203,7 +1184,7 @@ class FiniteFieldPoly:
 
 def FiniteField(p,**kwargs):
 	def gffp(coef):
-		return FiniteFieldPoly(p,coef,**kwargs)
+		return FiniteFieldPoly(p, coef)
 
 	return gffp
 
