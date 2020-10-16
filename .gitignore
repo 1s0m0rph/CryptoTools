@@ -2,3 +2,4 @@
 
 !.gitignore
 !crypto_tools.py
+!test_crypto_tools.py

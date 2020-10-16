@@ -1024,3 +1024,179 @@ def quad_sieve(n,B,kmin=None,knum=None):
 '''
 END FACTORING
 '''
+
+
+'''
+FINITE FIELDS
+'''
+
+FFP_SS_TRANS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")#https://codeigo.com/python/printing-subscript-and-superscript
+
+class FiniteFieldPoly:
+
+	"""
+	n is optional finite field modulus which should be an FFP with the same p
+	"""
+	def __init__(self,p:int,coef,n=None):
+		self.p = p
+		self.n = n
+		if n is not None:
+			raise NotImplementedError("Finite field moduli not yet implemented")
+			assert(type(n) == FiniteFieldPoly)
+			assert(n.p == p)
+			assert(n.n is None)
+		#build c, being careful with typing
+		if type(coef) in [int,ModInteger]:
+			self.coef = np.array([ModInteger(coef,p,n_is_prime=True)])
+		else:
+			coef_tmp = []
+			for c in coef:
+				coef_tmp.append(ModInteger(c,p,n_is_prime=True))
+			while (len(coef_tmp) > 1) and (coef_tmp[0] == 0):
+				del coef_tmp[0]#no leading zeroes so degree is just the length of coef
+			self.coef = np.array(coef_tmp)
+		self.dgr = len(self.coef) - 1
+
+	def ext_low_degree(self,other):
+		low_is_self = self.dgr < other.dgr #need to return this for non-commutative operations (e.g. subtract, divide)
+		ldgc, hdgc = (self.coef, other.coef) if low_is_self else (other.coef, self.coef)
+		ldgc_ext = np.array([ModInteger(0, self.p, n_is_prime=True) for _ in range(len(hdgc)-len(ldgc))]+list(ldgc))
+		return ldgc_ext,hdgc,low_is_self
+
+	def pairwise_check(self,other):
+		if type(other) != FiniteFieldPoly:
+			other = FiniteFieldPoly(self.p,other,self.n)
+			return other,self.ext_low_degree(other)#all checks will succeed this way, so don't do them
+		if self.n is not None:
+			if other.n is None:
+				raise AttributeError('Trying to perform pairwise operation between polynomials mod n(x) and unmodded polynomials')
+			if not np.all(self.n == other.n):
+				raise AttributeError('Trying to perform pairwise operation on polynomials with different moduli')
+		elif other.n is not None:
+			raise AttributeError('Trying to perform pairwise operation between polynomials mod n(x) and unmodded polynomials')
+		return other,self.ext_low_degree(other)
+
+	def __repr__(self):
+		#make fn look pretty
+		fnst = ""
+		for i,c in enumerate(self.coef):
+			if (c.x != 0) or (len(self.coef) == 1):
+				fnst += ('' if ((c.x == 1) and (i != (len(self.coef)-1))) else "{}".format(c.x)) + ("x" if (i != ((len(self.coef)-1))) else "") + ("{}".format(len(self.coef)-i-1).translate(FFP_SS_TRANS) if i < len(self.coef)-2 else "") + " + "
+
+		fnst = fnst[:-3]#drop last +
+
+		if self.n is None:
+			return "F{}: {}".format(self.p,fnst)
+		else:
+			return "F{}: {} (mod {})".format(self.p,fnst,self.n)
+
+	def __eq__(self, other):
+		if type(other) not in [FiniteFieldPoly,int,list,set,np.array]:
+			return False
+		other,(ldgc_ext,hdgc,_) = self.pairwise_check(other)
+		#as long as that passes all that matters is the degrees
+		return np.all(ldgc_ext == hdgc)
+
+	def __add__(self, other):
+		other,(ldgc_ext,hdgc,_) = self.pairwise_check(other)
+		return FiniteFieldPoly(self.p,ldgc_ext + hdgc,self.n)
+
+	def __neg__(self):
+		#just negate all the coefficients
+		return FiniteFieldPoly(self.p,-self.coef,self.n)
+
+	def __sub__(self, other):
+		other, (ldgc_ext, hdgc,lis) = self.pairwise_check(other)
+		if lis:
+			return FiniteFieldPoly(self.p,ldgc_ext - hdgc,self.n)
+		else:
+			return FiniteFieldPoly(self.p,hdgc - ldgc_ext,self.n)
+
+	def __lshift__(self, other:int):
+		return FiniteFieldPoly(self.p,list(self.coef) + [0 for _ in range(other)],self.n)
+
+	def __rshift__(self, other:int):
+		return FiniteFieldPoly(self.p,list(self.coef[other:]),self.n)
+
+	'''
+	happy happy fun times
+	hello karatsuba my old friend
+	
+	general idea for karatsuba multiplication:
+		want to multiply a*b
+		write
+			a = a1*B^m + a0
+			b = b1*B^m + b0
+		for m < min(degree a, degree b)
+		then
+			ab = (a1B^m + a0)(b1B^m + b0)
+			   = c2B^2m + c1B^m + c0
+			where
+				c2 = a1b1
+				c1 = a1b0 + a0b1
+				c0 = a0b0
+		for all of this use B = x (the parameter of the polynomials)
+	'''
+	def __mul__(self, other):
+		if (type(other) in [ModInteger,int]):
+			#special case for scaling
+			return FiniteFieldPoly(self.p,self.coef*other,self.n)
+		other, (ldgc_ext, hdgc, _) = self.pairwise_check(other)
+		if len(other.coef) == 1:
+			return FiniteFieldPoly(self.p, (self*other.coef[0]).coef, self.n)
+		if len(self.coef) == 1:
+			return FiniteFieldPoly(self.p, (other*self.coef[0]).coef, self.n)
+		a = hdgc
+		b = ldgc_ext
+		if len(a) == 1:
+			return FiniteFieldPoly(self.p,[a[0] * b[0]],self.n)
+		#otherwise reduce with karatsuba
+		m = len(a) - 1
+		a0 = FiniteFieldPoly(self.p,a[1:],self.n)#drop the first one since that is a1
+		a1 = a[0]
+		b0 = FiniteFieldPoly(self.p,b[1:],self.n)
+		b1 = b[0]
+		z2 = FiniteFieldPoly(self.p,a1 * b1,self.n)#cheap and easy because a1 and b1 are just constants
+		z2scale = z2 << (2*m)#z2 * B^(2m)
+		z0 = a0*b0
+		z1 = (a0 - a1)*((-b0) + b1) + z2 + z0#this is not infinite since we've reduced the length for a1 and b1
+		#ordering for z1 is necessary so we don't have to make more FFPs here
+		z1scale = z1 << m
+		return z2scale + z1scale + z0
+
+	'''
+	poly long divide
+	'''
+	def __floordiv__(self, other):
+		other, (ldgc_ext, hdgc, lis) = self.pairwise_check(other)
+		if lis:
+			a = ldgc_ext
+			b = hdgc
+		else:
+			a = hdgc
+			b = ldgc_ext
+
+
+		lcdmi = other.coef[0]**(-1)#leading coef of the divisor (multiplicative inverse mod p)
+		q = FiniteFieldPoly(self.p,0,self.n)
+		r = self
+		while r.dgr >= other.dgr:
+			#take the highest-order term (coefficient) from a
+			c = r.coef[0]*lcdmi#MI division (using multiplicative inverse mod p)
+			#multiply by 1<<i to obtain the add to q
+			aq = (FiniteFieldPoly(self.p,1,self.n) << (r.dgr - other.dgr))*c
+			q += aq
+			#multiply by b to obtain this quotient
+			qt = other*aq
+			#subtract from previous remainder to obtain the next remainder
+			r -= qt
+
+		return q,r
+
+
+	def __truediv__(self, other):
+		return self.__floordiv__(other)
+
+'''
+END FINITE FIELDS
+'''
