@@ -1,6 +1,7 @@
 """
 BASIC NUMBER THEORY CODE
 """
+from typing import Union
 
 import numpy as np
 from sympy import Matrix
@@ -58,6 +59,10 @@ def modi(a,n):
 def gcd(a,b,returnSteps=False,modOperation = modi):
 	if type(a) == FiniteFieldPoly:
 		return FFP_ext_eucl(a,b,just_gcd=True)
+	if type(a) == ModInteger:
+		a = a.x
+	if type(b) == ModInteger:
+		b = b.x
 	a = abs(a)
 	b = abs(b)
 	currentA = max(a,b)
@@ -202,6 +207,8 @@ def mr_is_probprime(n,nbases=None):
 			bases.add(random.randint(2,n))
 	
 	for a in bases:
+		if a == n:
+			return True#it's prime yo
 		#compute b0 = a^m mod n
 		b = mr(a)**m
 		#if b0 is pm 1 then return probable prime=true
@@ -419,6 +426,21 @@ class ModInteger:
 
 	def __int__(self):
 		return self.x
+
+	'''
+	brute-force
+	'''
+	def sqrt(self):
+		#TODO make not brute force?
+		rt = ModInteger(1,self.n,self.n_is_prime,self.phi_n)
+		if self == 0:
+			return rt-1#zero
+		while (rt**2 != self) and (rt != 0):
+			rt += 1
+		if rt == 0:
+			return None
+		return rt
+
 
 '''
 sagelike conversion factory
@@ -1000,7 +1022,6 @@ def quad_sieve(n,B,kmin=None,knum=None):
 
 	#now that we have these, we can ACTUALLY factor n (probably)
 	#we need to find some combination of these vectors (i.e. the exponent vectors) that sums to 0 mod 2
-	#TODO https://en.wikipedia.org/wiki/Quadratic_sieve#Matrix_processing
 	seen_ones = {}
 	ps = list({p for p,_ in fb})
 	A = Matrix([[ModInteger(facts[i][1][p],2) if p in facts[i][1] else ModInteger(0,2) for i in range(len(facts))] for p in ps],dtype=int)
@@ -1048,7 +1069,9 @@ class FiniteFieldPoly:
 		self.p = p
 		self.print_as_latex = print_as_latex
 		#build c, being careful with typing
-		if type(coef) in [int,ModInteger]:
+		if type(coef) == FiniteFieldPoly:
+			self.coef = coef.coef.copy()
+		elif type(coef) in [int,ModInteger]:
 			self.coef = np.array([ModInteger(coef,p,n_is_prime=True)])
 		else:
 			coef_tmp = []
@@ -1260,6 +1283,9 @@ class FiniteFieldPoly:
 		# q = resbig >> (2*o_inv.dgr - other.dgr + 1)
 		return self/other
 
+	def __pow__(self, power):
+		return ping_FF(self,power)
+
 '''
 solve the the linear diophantine equation in Fp[x]:
 	a(x)s(x) + b(x)t(x) = gcd(a(x),b(x))
@@ -1286,8 +1312,17 @@ def FFP_ext_eucl(a,b,just_gcd=False):
 		b = r
 
 	if just_gcd:
+		#special case for degree zero, but this should probably also exist in general...
+		if a.dgr == 0:
+			return gcd(a.coef[0],a.p)
 		return a
 	else:
+		if a.dgr == 0:
+			g, (l, _) = ext_eucl(a.coef[0].x, a.p)
+			if g != 1:
+				return g,acard#acard is technically irrelevant now
+			else:
+				return gcd(a.coef[0],a.p),(acard[0]*l,acard[1]*l)#divide out the a0 term
 		return a,acard
 
 
@@ -1333,6 +1368,29 @@ def poly_is_reducible_23(poly):
 			return True
 	return False
 
+'''
+rabin irreducibility test
+https://en.wikipedia.org/wiki/Factorization_of_polynomials_over_finite_fields
+"a polynomial f of degree k in Fq[x] is irreducible iff gcd(f,x^(q^(n_i)) - x) = 1 where n_i is n/p_i where p_i is the ith prime factor of n"
+'''
+def poly_is_reducible(poly,n_fac_div=None):
+	if n_fac_div is None:
+		n_fac = naive_fac(poly.dgr)
+		n_fac_div = [poly.dgr//pi for pi in n_fac]
+
+	f = FiniteFieldModM(poly.p,poly)
+
+	for fdiv in n_fac_div:
+		#calculate the exponent
+		e = poly.p**fdiv
+		#calculate the base mod f
+		h = f(1) << e#this is now the polynomial x^(p^(n_i))
+		h -= [1,0]#h is now the polynomial x^(p^(n_i)) - x
+		if gcd(h.poly,poly) != 1:
+			return True
+	return False
+
+
 def find_irreducible_poly(p,min_dgr,**kwargs):
 	f = FiniteField(p,**kwargs)
 	#"sieve" until we get a hole at at least min_dgr
@@ -1349,7 +1407,21 @@ def find_irreducible_poly(p,min_dgr,**kwargs):
 		return p_iter
 
 	#so min dgr is at least 4
-	raise NotImplementedError("")
+	#just do trial division -_-
+	coef_iter = [ModInteger(x, p) for x in [1]+[0]*(min_dgr-1)+[1]]
+	p_iter = f(coef_iter)
+	n_fac = naive_fac(p_iter.dgr)
+	n_fac_div = [p_iter.dgr//pi for pi in n_fac]
+	prev_dgr = p_iter.dgr
+	while poly_is_reducible(p_iter,n_fac_div=n_fac_div):
+		p_iter = iterate_poly_coef(p_iter,extend=True,**kwargs)
+		if p_iter.dgr > prev_dgr:
+			prev_dgr = p_iter.dgr#lol... "p_iter degree"
+			n_fac = naive_fac(p_iter.dgr)
+			n_fac_div = [p_iter.dgr//pi for pi in n_fac]
+
+	return p_iter
+
 
 
 """
@@ -1368,6 +1440,7 @@ class FiniteFieldPolyModM:
 			self.poly = FiniteFieldPoly(self.p, coef, self.print_as_latex)
 		#now mod that with m
 		self.poly = mod(self.poly,self.m)
+		self.inv = None#cache this
 
 	def __repr__(self):
 		if self.print_as_latex:
@@ -1391,6 +1464,10 @@ class FiniteFieldPolyModM:
 		other = self.pairwise_check(other)
 		return FiniteFieldPolyModM(self.p, self.m, op(self.poly,other.poly), self.print_as_latex)
 
+	def __eq__(self, other):
+		other = self.pairwise_check(other)
+		return self.poly == other.poly
+
 	def __add__(self, other):
 		return self.bin_op_std(other,lambda x,y:x+y)
 
@@ -1403,12 +1480,73 @@ class FiniteFieldPolyModM:
 	def __mul__(self, other):
 		return self.bin_op_std(other,lambda x,y:x*y)
 
+	def __pow__(self, power):
+		return ping_FF(self,power)
+
+
+	def __lshift__(self, other:int):
+		#keep going until the degree gets bigger than m, then mod, mod again at the end
+		res = FiniteFieldPoly(self.p,self.poly,self.print_as_latex)#copy
+		k = 0
+		while k < other:
+			shift_amt = min(other-k,self.m.dgr - res.dgr)#this is the exact required amount
+			res <<= shift_amt
+			res = mod_poly(res,self.m)
+			k += shift_amt
+		return FiniteFieldPolyModM(self.p,self.m,res,self.print_as_latex)
+
+
+	'''
+	find the multiplicative inverse of self mod m (ext eucl)
+	equivalent to solving the linear diophantine eq:
+		a(x)*a^-1(x) - m(x)k(x) = 1
+	'''
+	def get_inv(self):
+		if self.inv is not None:
+			return self.inv
+		g,(self_inv,_) = FFP_ext_eucl(self.poly,-self.m)
+		if g != 1:
+			raise AttributeError("GCD of modulus and polynomial is not <1>, no inverse exists")
+		si = FiniteFieldPolyModM(self.p,self.m,self_inv,self.print_as_latex)
+		si.inv = self
+		self.inv = si
+		return si
+
+	def __floordiv__(self, other):
+		other = self.pairwise_check(other)
+		return self*other.get_inv()
+
+	def __truediv__(self, other):
+		return self.__floordiv__(other)
+
 
 def FiniteFieldModM(p,m,**kwargs):
 	def get(coef):
 		return FiniteFieldPolyModM(p,m,coef,**kwargs)
 
 	return get
+
+
+'''
+pingala implementation for finite fields
+'''
+def ping_FF(fp:Union[FiniteFieldPoly,FiniteFieldPolyModM],e:int):
+	if type(fp) == FiniteFieldPoly:
+		poly = fp
+		res = FiniteFieldPoly(poly.p,poly.coef,poly.print_as_latex)
+	else:
+		poly = fp.poly
+		res = FiniteFieldPolyModM(fp.p,fp.m,fp.poly,fp.print_as_latex)
+
+	eb_st = bin(e)[3:]#drop the '0b' as well as the first bit since it's always a 1
+	for bit in eb_st:
+		if bit == '1':
+			res = res*res*poly
+		else:
+			res = res*res
+
+	return res
+
 
 '''
 Finite Field Polynomial Mod M multiplication table in latex
