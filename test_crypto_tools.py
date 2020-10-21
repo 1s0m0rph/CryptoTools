@@ -188,9 +188,28 @@ class TestFiniteFields(TestCase):
 
 		assert (poly_is_reducible(a))
 
-
 	def test_find_irreducible_poly(self):
 		p = 17
 
-		a = find_irreducible_poly(p,4)
-		assert(a == [1,0,0,0,3])#regression test
+		a = find_irreducible_poly(p, 4)
+		assert (a == [1, 0, 0, 0, 3])  #regression test
+
+
+class TestEllipticPoint(TestCase):
+
+	def test_add(self):
+		p = 5
+		poly = FiniteFieldPoly(p,[1,0,2,4])
+		P = EllipticPoint(poly,0,2)
+		Q = EllipticPoint(poly,2,4)
+		R = EllipticPoint(poly,4,4)
+
+		sm = P + Q
+		assert(sm == R)
+
+		P = EllipticPoint(poly, 0, 3)
+		Q = EllipticPoint(poly, 4, 1)
+		R = EllipticPoint(poly, 0, 2)
+
+		sm = P+Q
+		assert (sm == R)

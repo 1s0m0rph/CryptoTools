@@ -1584,3 +1584,89 @@ def FFPMM_mult_table_tex(p,m):
 '''
 END FINITE FIELDS
 '''
+
+'''
+BEGIN ELIPTIC CURVES
+'''
+
+class EllipticPoint:
+
+	"""
+	A point on the elliptic curve specified by the given polynomial
+	"""
+
+	'''
+	Takes in a finite field polynomial as parameter, but thinks of it as being y^2 = <that>
+	'''
+	def __init__(self,poly:FiniteFieldPoly,x,y):
+		self.is_inf = False
+		if x is None:#we'll take this to mean infinity
+			self.is_inf = True
+		else:
+			self.x = ModInteger(x,poly.p)
+			self.y = ModInteger(y,poly.p)
+		self.poly = poly
+		self.p = poly.p
+		if (not self.is_inf) and (self.y**2 != poly[self.x]):
+			raise AttributeError("Elliptic point {} is not on the curve specified by y² = {}".format((x,y),poly))
+
+
+	def __repr__(self):
+		return '({}, {})'.format(self.x,self.y)#simple -- could make more complex later
+
+
+	def pairwise_check(self,other):
+		if type(other) != EllipticPoint:
+			return EllipticPoint(self.poly,*other)#think of it is a list/tuple
+		if other.poly != self.poly:
+			raise AttributeError("Comparing elliptic points on different curves")
+		return other
+
+	def __eq__(self, other):
+		other = self.pairwise_check(other)
+		return (self.x == other.x) and (self.y == other.y)
+
+	def __add__(self, other):
+		other = self.pairwise_check(other)
+		if self.is_inf:
+			return other
+		if other.is_inf:
+			return self
+		#"a line passes through inf iff it is vertical"
+		if self.x == other.x:
+			return EllipticPoint(self.poly,None,None)#infinity
+
+		#the line going through both of us is given by
+		m = (other.y - self.y)/(other.x - self.x)
+		#(y - y1) = m(x - x1)
+		#y = mx - mx1 + y1
+		#b = (y1 - mx1)
+		b = self.y - m*self.x
+
+		#this intersects the curve at (mx+b)^2 = ax^3 + bx^2 +cx + d (as well as us and the other point)
+		#m^2x^2 + 2mbx + b^2 = ax^3 + bx^2 + cx + d
+		#-ax^3 + (m^2 - b)x^2 + (2mb - c)x + (b^2 - d) = 0 (find roots of this)
+		#-(m^2 - b) = sum of roots = x1 + x2 + xr
+		#xr = -x1 - x2 + b - m^2 = -(x1 + x2 + m^2 - b)
+		xr = -(self.x + other.x + m**2 - b)
+		#use the y = mx + b eqn to find y
+		yr = m*xr + b
+		#actual y is negated
+		yres = -yr
+		return EllipticPoint(self.poly,xr,yres)
+
+
+	def __neg__(self):
+		if self.is_inf:
+			return self #-inf = inf (inf is additive identity)
+
+		#otherwise negate just y
+		return EllipticPoint(self.poly,self.x,-self.y)
+
+	def __sub__(self,other):
+		other = self.pairwise_check(other)
+		return self + (-other)
+
+'''
+END ELIPTIC CURVES
+'''
