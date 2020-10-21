@@ -1599,6 +1599,9 @@ class EllipticPoint:
 	Takes in a finite field polynomial as parameter, but thinks of it as being y^2 = <that>
 	'''
 	def __init__(self,poly:FiniteFieldPoly,x,y):
+		assert(poly.dgr == 3)
+		assert(poly.coef[0] == 1)#x^3
+		assert(poly.coef[1] == 0)#no x^2 term
 		self.is_inf = False
 		if x is None:#we'll take this to mean infinity
 			self.is_inf = True
@@ -1640,17 +1643,17 @@ class EllipticPoint:
 		m = (other.y - self.y)/(other.x - self.x)
 		#(y - y1) = m(x - x1)
 		#y = mx - mx1 + y1
-		#b = (y1 - mx1)
-		b = self.y - m*self.x
+		#c = (y1 - mx1)
+		c = self.y - m*self.x
 
-		#this intersects the curve at (mx+b)^2 = ax^3 + bx^2 +cx + d (as well as us and the other point)
-		#m^2x^2 + 2mbx + b^2 = ax^3 + bx^2 + cx + d
-		#-ax^3 + (m^2 - b)x^2 + (2mb - c)x + (b^2 - d) = 0 (find roots of this)
-		#-(m^2 - b) = sum of roots = x1 + x2 + xr
-		#xr = -x1 - x2 + b - m^2 = -(x1 + x2 + m^2 - b)
-		xr = -(self.x + other.x + m**2 - b)
-		#use the y = mx + b eqn to find y
-		yr = m*xr + b
+		#this intersects the curve at (mx+c)^2 = x^3 + ax + b (as well as us and the other point)
+		#m^2x^2 + 2mcx + c^2 = x^3 + ax + b
+		#x^3 - m^2x^2 + (a - 2mc)x + (b - c^2) = 0 (roots of this)
+		#-(-m^2) = sum of roots = x1 + x2 + xr
+		#xr = -(x1 + x2 - m^2)
+		xr = -(self.x + other.x - m**2)
+		#use the y = mx + c eqn to find y
+		yr = m*xr + c
 		#actual y is negated
 		yres = -yr
 		return EllipticPoint(self.poly,xr,yres)

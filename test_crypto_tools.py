@@ -213,3 +213,11 @@ class TestEllipticPoint(TestCase):
 
 		sm = P+Q
 		assert (sm == R)
+
+		poly = FiniteFieldPoly(7,[1,0,1,1])
+		P = EllipticPoint(poly, 0, 1)
+		Q = EllipticPoint(poly, 2, 2)
+		R = EllipticPoint(poly, 0, 6)
+
+		sm = P+Q
+		assert (sm == R)
