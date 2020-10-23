@@ -1747,20 +1747,24 @@ def EllipticCurve(p,a,b,**kwargs):
 '''
 factor n using the elliptic method
 '''
-def elliptic_factor(n,point_initial=None,a=1):
-	if point_initial is None:
-		point_initial = (ModInteger(0,n),ModInteger(1,n))
+def elliptic_factor(n, initial_point=None, a=1, verbose=False, ret_mults_to_success=False):
+	if initial_point is None:
+		initial_point = (ModInteger(0, n), ModInteger(1, n))
 	else:
-		point_initial = (ModInteger(point_initial[0],n),ModInteger(point_initial[1],n))
+		initial_point = (ModInteger(initial_point[0], n), ModInteger(initial_point[1], n))
 	a = ModInteger(a,n)
 	#find an EC with that point on it (mod n)
 	#this will be
 	#y^2 = x^3 + ax + b
 	#b = y^2 - (x^3 + ax)
-	x0,y0 = point_initial
+	x0,y0 = initial_point
 	b = (y0**2) - ((x0**3) + x0*a)
 	E = EllipticCurve(n,a,b,for_factor=True)
 	P = E(x0,y0)
+	if verbose:
+		polystr = str(P.poly)
+		print("Polynomial: y² = {}".format(polystr[polystr.index('x'):]))
+		print("x₀ = {}, y₀ = {}".format(x0.x,y0.x))
 	i = 2
 	while not P.factor_canary:
 		P *= i
@@ -1768,7 +1772,10 @@ def elliptic_factor(n,point_initial=None,a=1):
 	#we have a winner
 	fac0 = gcd(P.x.x,n)
 	fac1 = n//fac0
-	return fac0,fac1
+	if ret_mults_to_success:
+		return fac0,fac1,i
+	else:
+		return fac0,fac1
 
 
 '''
