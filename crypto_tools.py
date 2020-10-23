@@ -406,7 +406,7 @@ class ModInteger:
 		#try running ext eucl to find an inverse, if we find that gcd(other,self) is not 1 then it won't work anyway
 		g,(l,_) = ext_eucl(other.x,other.n)
 		if g != 1:
-			raise AttributeError("Dividend and modulus not coprime -- solutions will not be unique")
+			raise ZeroDivisionError("Dividend {} and modulus {} not coprime -- solutions will not be unique".format(other.x,self.n))
 		#if we are coprime then l is our inverse
 
 		return self * l
@@ -1597,30 +1597,39 @@ class EllipticPoint:
 
 	'''
 	Takes in a finite field polynomial as parameter, but thinks of it as being y^2 = <that>
+	for_factor is a parameter which tells us that this EC point is intended to be used to factor a number
+		this changes doubling behavior to not throw an exception on impossible division
+		(generally this means p will not be prime)
 	'''
-	def __init__(self,poly:FiniteFieldPoly,x,y):
+	def __init__(self,poly:FiniteFieldPoly,x,y,for_factor=False,factor_canary=False):
 		assert(poly.dgr == 3)
 		assert(poly.coef[0] == 1)#x^3
 		assert(poly.coef[1] == 0)#no x^2 term
 		self.is_inf = False
-		if x is None:#we'll take this to mean infinity
+		self.for_factor = for_factor
+		self.factor_canary = factor_canary#this is used for when we're factoring so we can detect (and return) non-coprime with p items
+
+		if (not factor_canary) and ((x is None) or (y is None)):#we'll take this to mean infinity
 			self.is_inf = True
 		else:
-			self.x = ModInteger(x,poly.p)
-			self.y = ModInteger(y,poly.p)
+			self.x = ModInteger(x,poly.p)#for factoring, this will contain the item
+			self.y = ModInteger(y,poly.p)#as will this
 		self.poly = poly
 		self.p = poly.p
-		if (not self.is_inf) and (self.y**2 != poly[self.x]):
+		if (not factor_canary) and (not self.is_inf) and (self.y**2 != poly[self.x]):
 			raise AttributeError("Elliptic point {} is not on the curve specified by y² = {}".format((x,y),poly))
 
 
 	def __repr__(self):
-		return '({}, {})'.format(self.x,self.y)#simple -- could make more complex later
+		if self.is_inf:
+			return 'INF'
+		else:
+			return 'E{}: ({}, {})'.format(self.p,self.x,self.y)#simple -- could make more complex later
 
 
 	def pairwise_check(self,other):
 		if type(other) != EllipticPoint:
-			return EllipticPoint(self.poly,*other)#think of it is a list/tuple
+			return EllipticPoint(self.poly,*other,for_factor=self.for_factor)#think of it is a list/tuple
 		if other.poly != self.poly:
 			raise AttributeError("Comparing elliptic points on different curves")
 		return other
@@ -1635,12 +1644,50 @@ class EllipticPoint:
 			return other
 		if other.is_inf:
 			return self
-		#"a line passes through inf iff it is vertical"
-		if self.x == other.x:
-			return EllipticPoint(self.poly,None,None)#infinity
+		if self == other:
+			#tangent line special case
+			#E: y^2 = x^3 + ax + b
+			#dE: 2yy' = 3x^2 + a
+			#dE: dy/dx = (3x^2 + a)/(2y) [plug in for x and y to get slope]
+			if self.y == 0:
+				return EllipticPoint(self.poly,None,None,for_factor=self.for_factor)#infinity
+
+			denominator = self.y*2
+			if self.for_factor:
+				try:
+					m = ((self.x**2)*3+self.poly.coef[2])/denominator
+				except ZeroDivisionError:
+					#this indicates we have found something which has nontrivial gcd with the modulus p
+					#give us that thing
+					return EllipticPoint(self.poly,denominator,denominator,for_factor=True,factor_canary=True)
+			else:
+				m = ((self.x**2)*3+self.poly.coef[2])/denominator#if this throws an error anyway the user fukked up
+			#point-slope for equation
+			#y - y1 = m(x - x1)
+			#y = m(x - x1) + y1
+			#equate this ^^ to our poly
+			#(mx - mx1 + y1)^2 = x^3 + ax + b
+			#m^2x^2 - 2m^2x1 + 2mxy1 + m^2x1^2 - 2mx1y1 + y1^2 = x^3 + ax + b
+			#only really care about the x^2 term anyway which is m^2x^2
+			#this means that xr = -(m^2 - 2x1)
+			xr = -(self.x*2 - m**2)
+			#and yr is given by the above formoola
+			yr = -(m*(xr - self.x) + self.y)#don't forget to negate
+
+			return EllipticPoint(self.poly,xr,yr,for_factor=self.for_factor)
+		elif self.x == other.x:
+			#"a line passes through inf iff it is vertical"
+			return EllipticPoint(self.poly,None,None,for_factor=self.for_factor)#infinity
 
 		#the line going through both of us is given by
-		m = (other.y - self.y)/(other.x - self.x)
+		denominator = other.x - self.x
+		if self.for_factor:#bad division can also happen here
+			try:
+				m = (other.y-self.y)/denominator
+			except ZeroDivisionError:
+				return EllipticPoint(self.poly, denominator, denominator, for_factor=True, factor_canary=True)
+		else:
+			m = (other.y-self.y)/denominator
 		#(y - y1) = m(x - x1)
 		#y = mx - mx1 + y1
 		#c = (y1 - mx1)
@@ -1656,7 +1703,7 @@ class EllipticPoint:
 		yr = m*xr + c
 		#actual y is negated
 		yres = -yr
-		return EllipticPoint(self.poly,xr,yres)
+		return EllipticPoint(self.poly,xr,yres,for_factor=self.for_factor)
 
 
 	def __neg__(self):
@@ -1664,11 +1711,65 @@ class EllipticPoint:
 			return self #-inf = inf (inf is additive identity)
 
 		#otherwise negate just y
-		return EllipticPoint(self.poly,self.x,-self.y)
+		return EllipticPoint(self.poly,self.x,-self.y,for_factor=self.for_factor)
 
 	def __sub__(self,other):
 		other = self.pairwise_check(other)
 		return self + (-other)
+
+
+	def __mul__(self, const:int):
+		#like pingala but weird
+
+		mul_st = bin(const)[3:]#drop the '0b' as well as the first bit
+		res = self#copy not necessary because all operations create new objects anyway
+		for bit in mul_st:
+			if bit == '1':
+				res = (res + res) + self#r+r+p
+			else:
+				res = res + res
+
+		return res
+
+
+'''
+takes parameters as 
+y^2 = x^3 + ax + b (mod p)
+'''
+def EllipticCurve(p,a,b,**kwargs):
+	poly = FiniteFieldPoly(p,[1,0,a,b])#not allowing kwargs here for now
+	def get(x=None,y=None):#allow get(), which gives infinity
+		return EllipticPoint(poly,x,y,**kwargs)
+
+	return get
+
+
+'''
+factor n using the elliptic method
+'''
+def elliptic_factor(n,point_initial=None,a=1):
+	if point_initial is None:
+		point_initial = (ModInteger(0,n),ModInteger(1,n))
+	else:
+		point_initial = (ModInteger(point_initial[0],n),ModInteger(point_initial[1],n))
+	a = ModInteger(a,n)
+	#find an EC with that point on it (mod n)
+	#this will be
+	#y^2 = x^3 + ax + b
+	#b = y^2 - (x^3 + ax)
+	x0,y0 = point_initial
+	b = (y0**2) - ((x0**3) + x0*a)
+	E = EllipticCurve(n,a,b,for_factor=True)
+	P = E(x0,y0)
+	i = 2
+	while not P.factor_canary:
+		P *= i
+		i += 1
+	#we have a winner
+	fac0 = gcd(P.x.x,n)
+	fac1 = n//fac0
+	return fac0,fac1
+
 
 '''
 END ELIPTIC CURVES

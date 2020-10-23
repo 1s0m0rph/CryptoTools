@@ -162,12 +162,21 @@ class TestFiniteFields(TestCase):
 
 		ae = a**e
 		assert (ae == [243, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2464, 0, 0, 0, 0, 1])
+		assert (ae == a*a*a*a*a)
 
 		p = 3
 		a = FiniteFieldPolyModM(p, FiniteFieldPoly(p, [1, 0, 1]), [2, 2])  #m=x^2+1, a=2x + 2
 		e = 5
 		ae = a**e
 		assert (ae == [1, 1])
+		assert (ae == a*a*a*a*a)
+
+		p = 5
+		a = FiniteFieldPoly(p, [3, 0, 4, 1])
+		e = 4
+
+		ae = a**e
+		assert (ae == a*a*a*a)
 
 	def test_poly_is_reducible(self):
 		p = 3
@@ -199,13 +208,16 @@ class TestEllipticPoint(TestCase):
 
 	def test_add(self):
 		p = 5
-		poly = FiniteFieldPoly(p,[1,0,2,4])
-		P = EllipticPoint(poly,0,2)
-		Q = EllipticPoint(poly,2,4)
-		R = EllipticPoint(poly,4,4)
+		poly = FiniteFieldPoly(p, [1, 0, 2, 4])
+		P = EllipticPoint(poly, 0, 2)
+		Q = EllipticPoint(poly, 2, 4)
+		R = EllipticPoint(poly, 4, 4)
 
-		sm = P + Q
-		assert(sm == R)
+		sm = P+Q
+		assert (sm == R)
+		R = EllipticPoint(poly, 4, 1)
+		sm = P+P
+		assert (sm == R)
 
 		P = EllipticPoint(poly, 0, 3)
 		Q = EllipticPoint(poly, 4, 1)
@@ -214,10 +226,39 @@ class TestEllipticPoint(TestCase):
 		sm = P+Q
 		assert (sm == R)
 
-		poly = FiniteFieldPoly(7,[1,0,1,1])
+		poly = FiniteFieldPoly(7, [1, 0, 1, 1])
 		P = EllipticPoint(poly, 0, 1)
 		Q = EllipticPoint(poly, 2, 2)
 		R = EllipticPoint(poly, 0, 6)
 
 		sm = P+Q
 		assert (sm == R)
+
+	def test_mul(self):
+		p = 19
+		E = EllipticCurve(p, 13, 2)
+		P = E(10, 7)
+		R = E(15, 0)
+
+		pr = P*50
+		assert (pr == R)
+
+		p = 101
+		E = EllipticCurve(p, 49, 22)
+		P = E(53, 81)
+		R = E(81, 58)
+
+		pr = P*79
+		assert (pr == R)
+
+
+	def test_elliptic_factor(self):
+		n = 18923
+		f0,f1 = elliptic_factor(n)
+
+		assert({f0,f1} == {127,149})
+
+		n = 101*103
+		f0,f1 = elliptic_factor(n)
+
+		assert({f0,f1} == {101,103})
