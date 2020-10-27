@@ -1,12 +1,14 @@
 """
 BASIC NUMBER THEORY CODE
 """
-from typing import Union
+from typing import Union, List
 
 import numpy as np
 from sympy import Matrix
 import math
 import random
+
+#TODO split this into more than just the one file
 
 PRIMES_1K = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997]
 
@@ -313,8 +315,10 @@ def get_msb(x):
 '''
 quickly calculate a^p mod n
 '''
-def ping(a,e:int,n):
-	res = ModInteger(a,n,n_is_prime=False)#n may be prime, but we don't want to check
+def ping(a,e:int,n,**kwargs):
+	if ('n_is_prime' not in kwargs) or (kwargs['n_is_prime'] is None):
+		kwargs.update({'n_is_prime':False})#this is to deal with infinite recursion problems
+	res = ModInteger(a,n,**kwargs)
 	e_st = bin(e)[3:]
 	for bit in e_st:
 		if bit == '1':
@@ -374,24 +378,24 @@ class ModInteger:
 	def pairwise_check(self,other):
 		otherp = other
 		if type(other) != ModInteger:
-			otherp = ModInteger(other,self.n,self.n_is_prime,self.phi_n)
+			otherp = ModInteger(other,self.n,n_is_prime=self.n_is_prime,phi_n=self.phi_n)
 		elif other.n != self.n:
 			raise AttributeError("Pairwise operation on numbers from different moduli")
 		return otherp
 	
 	def __add__(self,other):
 		other = self.pairwise_check(other)
-		return ModInteger(self.x + other.x,self.n,self.n_is_prime,self.phi_n)
+		return ModInteger(self.x + other.x,self.n,n_is_prime=self.n_is_prime,phi_n=self.phi_n)
 	
 	def __neg__(self):
-		return ModInteger(-self.x,self.n,self.n_is_prime,self.phi_n)
+		return ModInteger(-self.x,self.n,n_is_prime=self.n_is_prime,phi_n=self.phi_n)
 	
 	def __sub__(self,other):
 		return self + (-other)
 	
 	def __mul__(self,other):
 		other = self.pairwise_check(other)
-		return ModInteger(self.x * other.x,self.n,self.n_is_prime,self.phi_n)
+		return ModInteger(self.x * other.x,self.n,n_is_prime=self.n_is_prime,phi_n=self.phi_n)
 	
 	def __eq__(self,other):
 		other = self.pairwise_check(other)
@@ -416,10 +420,10 @@ class ModInteger:
 	
 	def __pow__(self,p:int):
 		if p == 0:
-			return ModInteger(1,self.n,self.n_is_prime,self.phi_n)
+			return ModInteger(1,self.n,n_is_prime=self.n_is_prime,phi_n=self.phi_n)
 		if p < 0:
-			return (ModInteger(1,self.n,self.n_is_prime,self.phi_n)/self)**(-p)#a^(-p) = (a^(-1))^p
-		return ping(self,p,self.n)
+			return (ModInteger(1,self.n,n_is_prime=self.n_is_prime,phi_n=self.phi_n)/self)**(-p)#a^(-p) = (a^(-1))^p
+		return ping(self,p,self.n,n_is_prime=self.n_is_prime,phi_n=self.phi_n)
 
 	def __hash__(self):
 		return hash(self.x)
@@ -428,18 +432,40 @@ class ModInteger:
 		return self.x
 
 	'''
-	brute-force
+	give *a* square root modulo n of self, if one exists (if we find one, others may still exist e.g. -a)
+	
+	brute-force iff modulo a non prime or p == 1 mod 8
+	else with euler-criterion-like methods
 	'''
-	def sqrt(self):
-		#TODO make not brute force?
-		rt = ModInteger(1,self.n,self.n_is_prime,self.phi_n)
-		if self == 0:
-			return rt-1#zero
-		while (rt**2 != self) and (rt != 0):
-			rt += 1
-		if rt == 0:
-			return None
-		return rt
+	def sqrt(self,fast_only=False):
+		if (self == 0) or (self == 1):#always squares to itself (this handles the mod 2 case and many others)
+			return self
+		if fast_only and not self.n_is_prime:#double-check since this stuff won't work otherwise
+			print("WARNING: I don't know if modulus {} is prime and you want me to take fast square roots modulo it.".format(self.n))
+			self.n_is_prime = isprime(self.n)
+		if (self.n%4) == 3:
+			sqrt = self**((self.n+1)//4)
+			if (sqrt**2) == self:
+				return sqrt
+			#otherwise sqrt does not exist (-a is square)
+		if (self.n%8) == 5:
+			sqrt1 = self**((self.n+3)//8)  #option 1
+			if (sqrt1**2) == self:
+				return sqrt1
+			sqrt2 = sqrt1*(ModInteger(2, self.n)**((self.n-1)//4))
+			if (sqrt2**2) == self:
+				return sqrt2
+			#otherwise DNE
+		if (not self.n_is_prime) or (fast_only and ((self.n % 8) == 1)):
+			rt = ModInteger(1,self.n,self.n_is_prime,self.phi_n)
+			if self == 0:
+				return rt-1#zero
+			while (rt**2 != self) and (rt != 0):
+				rt += 1
+			if rt == 0:
+				return None
+			return rt
+		return None#just being explicit (this means root doeas not exist)
 
 
 '''
@@ -511,6 +537,19 @@ def bday_attack_disclog(p,g,h,n=None):
 	if g_exp is not None:
 		return ModInteger(g_exp,p-1)+gh_exp
 
+
+def ascii_to_nums_nomod(s,s_block_width):
+	i_block_width = 3  #technically floor(log10(256))+1 but that's just 3
+	m_nums = []
+	for chsq in [s[i:i+s_block_width] for i in range(0, len(s), s_block_width)]:
+		nums_this = ''
+		for ch in chsq:
+			tmp_chord = str(ord(ch))
+			tmp_chord = ('0'*(i_block_width-len(tmp_chord)))+tmp_chord
+			nums_this += tmp_chord
+		m_nums.append(int(nums_this))
+	return m_nums
+
 def ascii_to_nums(s,block_size,phi_n=None):
 	mr = IntegerModRing(block_size,phi_n=phi_n)
 	i_block_width = 3#technically floor(log10(256))+1 but that's just 3
@@ -525,10 +564,9 @@ def ascii_to_nums(s,block_size,phi_n=None):
 		m_nums.append(mr(int(nums_this)))
 	return m_nums
 
-def nums_to_ascii(nums,block_size):
+def nums_to_ascii(nums):
 	msg = ''
 	i_block_width = 3  # technically floor(log10(256))+1 but that's just 3
-	s_block_width = (int(math.log10(block_size)) + 1) // i_block_width
 	for num in nums:
 		#pad with zeroes
 		numst = str(num)
@@ -937,7 +975,7 @@ def get_qs_factor_base(n,B,kmax):
 		#use euler criterion:
 		#a is square mod p iff a^((p-1)/2) == 1 mod p
 		nmp = ModInteger(n,p)
-		if (p % 4) == 3:
+		if (p % 4) == 3:#technically a partial duplication of ModInteger.sqrt but it is being used differently here
 			sqrt = nmp**((p+1)//4)
 			if sqrt**2 == nmp:
 				fb.update({(p,1):{sqrt,-sqrt}})
@@ -1231,8 +1269,8 @@ class FiniteFieldPoly:
 		p[x]
 	'''
 	def __getitem__(self, x):
-		x = ModInteger(x,self.p)
-		res = ModInteger(0,self.p)
+		x = ModInteger(x,self.p,n_is_prime=True)
+		res = ModInteger(0,self.p,n_is_prime=True)
 		for i,c in enumerate(reversed(self.coef)):
 			res += c*(x**i)
 		return res
@@ -1603,8 +1641,6 @@ class EllipticPoint:
 	'''
 	def __init__(self,poly:FiniteFieldPoly,x,y,for_factor=False,factor_canary=False):
 		assert(poly.dgr == 3)
-		assert(poly.coef[0] == 1)#x^3
-		assert(poly.coef[1] == 0)#no x^2 term
 		self.is_inf = False
 		self.for_factor = for_factor
 		self.factor_canary = factor_canary#this is used for when we're factoring so we can detect (and return) non-coprime with p items
@@ -1624,7 +1660,7 @@ class EllipticPoint:
 		if self.is_inf:
 			return 'INF'
 		else:
-			return 'E{}: ({}, {})'.format(self.p,self.x,self.y)#simple -- could make more complex later
+			return 'E{}: ({}, {})'.format(self.p,self.x.x,self.y.x)#simple -- could make more complex later
 
 
 	def pairwise_check(self,other):
@@ -1636,6 +1672,8 @@ class EllipticPoint:
 
 	def __eq__(self, other):
 		other = self.pairwise_check(other)
+		if self.is_inf:
+			return other.is_inf
 		return (self.x == other.x) and (self.y == other.y)
 
 	def __add__(self, other):
@@ -1646,31 +1684,32 @@ class EllipticPoint:
 			return self
 		if self == other:
 			#tangent line special case
-			#E: y^2 = x^3 + ax + b
-			#dE: 2yy' = 3x^2 + a
-			#dE: dy/dx = (3x^2 + a)/(2y) [plug in for x and y to get slope]
+			#E: y^2 = ax^3 + bx^2 + cx + d
+			#dE: 2yy' = 3ax^2 + 2bx + c
+			#dE: dy/dx = (3ax^2 + 2bx + c)/(2y) [plug in for x and y to get slope]
 			if self.y == 0:
 				return EllipticPoint(self.poly,None,None,for_factor=self.for_factor)#infinity
 
 			denominator = self.y*2
+			eval_poly = FiniteFieldPoly(self.p,[self.poly.coef[0]*3,self.poly.coef[1]*2,self.poly.coef[2]])
 			if self.for_factor:
 				try:
-					m = ((self.x**2)*3+self.poly.coef[2])/denominator
+					m = eval_poly[self.x]/denominator
 				except ZeroDivisionError:
 					#this indicates we have found something which has nontrivial gcd with the modulus p
 					#give us that thing
 					return EllipticPoint(self.poly,denominator,denominator,for_factor=True,factor_canary=True)
 			else:
-				m = ((self.x**2)*3+self.poly.coef[2])/denominator#if this throws an error anyway the user fukked up
+				m = eval_poly[self.x]/denominator#if this throws an error anyway the user fukked up
 			#point-slope for equation
 			#y - y1 = m(x - x1)
 			#y = m(x - x1) + y1
 			#equate this ^^ to our poly
-			#(mx - mx1 + y1)^2 = x^3 + ax + b
-			#m^2x^2 - 2m^2x1 + 2mxy1 + m^2x1^2 - 2mx1y1 + y1^2 = x^3 + ax + b
-			#only really care about the x^2 term anyway which is m^2x^2
-			#this means that xr = -(m^2 - 2x1)
-			xr = -(self.x*2 - m**2)
+			#(mx - mx1 + y1)^2 = ax^3 + bx^2 + cx + d
+			#m^2x^2 - 2m^2x1 + 2mxy1 + m^2x1^2 - 2mx1y1 + y1^2 = ax^3 + bx^2 + cx + d
+			#only really care about the x^2 term anyway which is (m^2 - b)x^2
+			#this means that xr = -(m^2 + b - 2x1)
+			xr = -(self.x*2 - m**2 + self.poly.coef[1])
 			#and yr is given by the above formoola
 			yr = -(m*(xr - self.x) + self.y)#don't forget to negate
 
@@ -1693,12 +1732,11 @@ class EllipticPoint:
 		#c = (y1 - mx1)
 		c = self.y - m*self.x
 
-		#this intersects the curve at (mx+c)^2 = x^3 + ax + b (as well as us and the other point)
-		#m^2x^2 + 2mcx + c^2 = x^3 + ax + b
-		#x^3 - m^2x^2 + (a - 2mc)x + (b - c^2) = 0 (roots of this)
-		#-(-m^2) = sum of roots = x1 + x2 + xr
-		#xr = -(x1 + x2 - m^2)
-		xr = -(self.x + other.x - m**2)
+		#this intersects the curve at (mx+c)^2 = ax^3 + bx^2 + cx + d (as well as us and the other point)
+		#m^2x^2 + 2mcx + c^2 = ax^3 + bx^2 + cx + d
+		#-(b - m^2) = sum of roots = x1 + x2 + xr
+		#xr = -(x1 + x2 + b - m^2)
+		xr = -(self.x + other.x + self.poly.coef[1] - m**2)
 		#use the y = mx + c eqn to find y
 		yr = m*xr + c
 		#actual y is negated
@@ -1731,13 +1769,24 @@ class EllipticPoint:
 
 		return res
 
+	def __hash__(self):
+		if self.is_inf:
+			return self.p.__hash__()#bad, but it should work
+		else:
+			return (self.x,self.y).__hash__()
+
 
 '''
 takes parameters as 
 y^2 = x^3 + ax + b (mod p)
 '''
-def EllipticCurve(p,a,b,**kwargs):
-	poly = FiniteFieldPoly(p,[1,0,a,b])#not allowing kwargs here for now
+def EllipticCurve(p,a,b,c=None,**kwargs):
+	if c is None:
+		c = b
+		b = a
+		a = 0
+
+	poly = FiniteFieldPoly(p,[1,a,b,c])  #not allowing kwargs here for now
 	def get(x=None,y=None):#allow get(), which gives infinity
 		return EllipticPoint(poly,x,y,**kwargs)
 
@@ -1776,6 +1825,83 @@ def elliptic_factor(n, initial_point=None, a=1, verbose=False, ret_mults_to_succ
 		return fac0,fac1,i
 	else:
 		return fac0,fac1
+
+
+'''
+P also defines the curve itself and the prime 
+'''
+def ec_el_gamal_enc(m_raw:str,P:EllipticPoint,N:int,target_public_key:EllipticPoint):
+	x0s = ascii_to_nums_nomod(m_raw,7)#TODO how do we determine the block size?
+	#pad the x0s
+	for i in range(len(x0s)):
+		x0s[i] *= 100#TODO does this ever change for ascii? (probably not)
+	mr = IntegerModRing(P.p,n_is_prime=True)
+	#make sure all the f(x)s are square (increment if not) and immediately add to M along with the corresponding y
+	Ms = []
+	for x0 in x0s:
+		fx = P.poly[x0]
+		rtfx = fx.sqrt(fast_only=True)  #fast only *should* work
+		while rtfx is None:
+			#increment x0
+			x0 += 1
+			if (x0 % 100) == 0:
+				raise AttributeError("No square f(x) found for some part of message: {}. Padding size may need to increase.".format(m_raw))
+			fx = P.poly[x0]
+			rtfx = fx.sqrt(fast_only=True)#fast only *should* work
+		#we have a winner
+		Ms.append(EllipticPoint(P.poly,x0,rtfx))
+
+
+	ctxt = []
+	for M in Ms:
+		#random k
+		k = random.randint(1,N)
+		S = P*k
+		T = M + target_public_key*k
+		ctxt.append((S,T))
+
+	return ctxt
+
+
+def ec_el_gamal_dec(ctxt:List[EllipticPoint],private_key:Union[int,ModInteger]):
+	nums = []
+	for S,T in ctxt:
+		pnum = T - (S*private_key)
+		nums.append(pnum.x.x//(100))#divide out the padding
+
+	return nums_to_ascii(nums)
+
+
+'''
+mwahaha
+
+sounds great, doesn't work -- there's way too many complex operations (e.g. EC multiplies, MI inversions) for this to be fast enough
+'''
+def ec_bday_attack(P:EllipticPoint,B:EllipticPoint,N:int,npoints=None):
+	if npoints is None:
+		npoints = int(math.sqrt(N) * 1.25)
+
+	#make the lists
+	ks = [random.randint(1,N) for _ in range(npoints)]
+	ls = [random.randint(1,N) for _ in range(npoints)]
+	ls = [l for l in ls if (gcd(l,N) == 1)]#filter out the ones that won't work anyway (may be a smarter way to do this)
+	pks = [P*k for k in ks]
+	bls = {B*l:l for l in ls}
+
+	for k,pk in zip(ks,pks):
+		if pk in bls:
+			#we have a winner
+			l = bls[pk]
+			#now we have
+			#Pk = Bl
+			#Pk = bPl
+			#Pk = P(bl)
+			#so
+			#k == bl mod N
+			#b == kl^-1 mod N
+			b = ModInteger(l,N)**(-1) * k
+			return b.x
+
 
 
 '''

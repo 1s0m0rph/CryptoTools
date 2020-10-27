@@ -2,6 +2,41 @@ from unittest import TestCase
 from crypto_tools import *
 
 
+class TestModInteger(TestCase):
+	def test_sqrt(self):
+		assert (ModInteger(0, 2).sqrt(fast_only=True) == 0)
+		assert (ModInteger(1, 2).sqrt(fast_only=True) == 1)
+		p = 103  #3 mod 4
+		for x in range(p):
+			x = ModInteger(x, p, n_is_prime=True)
+			res = (x**2).sqrt(fast_only=True)
+			assert ((res == x) or (res == -x))
+
+		while (p%8) != 5:
+			p = next_prime(p, check_n=False)
+		#5 mod 8
+		for x in range(p):
+			x = ModInteger(x, p, n_is_prime=True)
+			res = (x**2).sqrt(fast_only=True)
+			assert ((res == x) or (res == -x))
+
+		while (p%8) != 1:
+			p = next_prime(p, check_n=False)
+		#1 mod 8
+		for x in range(p):
+			x = ModInteger(x, p, n_is_prime=True)
+			res = (x**2).sqrt(fast_only=True)
+			assert ((res == x) or (res == -x))
+
+		#composite
+		n = 80
+		for x in range(n):
+			x = ModInteger(x, n)
+			x2 = x**2
+			res = x2.sqrt()
+			assert ((res**2) == x2)  #the plus/minus x thing is only true mod a prime
+
+
 class Test(TestCase):
 	def test_get_qs_factor_base(self):
 		#just use the lecture notes example for now
@@ -234,6 +269,14 @@ class TestEllipticPoint(TestCase):
 		sm = P+Q
 		assert (sm == R)
 
+		E = EllipticCurve(7, 1, 1, 1)
+		P = E(1, 2)
+		Q = E(2, 1)
+		R = E(4, 1)
+
+		sm = P+Q
+		assert (sm == R)
+
 	def test_mul(self):
 		p = 19
 		E = EllipticCurve(p, 13, 2)
@@ -251,14 +294,47 @@ class TestEllipticPoint(TestCase):
 		pr = P*79
 		assert (pr == R)
 
+		E = EllipticCurve(11, 1, 1, 1)
+		P = E(2, 2)
+		R = E()  #inf
+
+		pr = P*70
+		assert (pr == R)
 
 	def test_elliptic_factor(self):
 		n = 18923
-		f0,f1 = elliptic_factor(n)
+		f0, f1 = elliptic_factor(n)
 
-		assert({f0,f1} == {127,149})
+		assert ({f0, f1} == {127, 149})
 
 		n = 101*103
-		f0,f1 = elliptic_factor(n)
+		f0, f1 = elliptic_factor(n)
 
-		assert({f0,f1} == {101,103})
+		assert ({f0, f1} == {101, 103})
+
+	def test_ec_el_gamal_enc_and_dec(self):
+		E = EllipticCurve(123456789101234567891027, 1, 1, 1)
+		P = E(3, 11655832467975276266127)
+		N = 61728394550949287614731
+
+		privkey = 666
+		pubkey = P*privkey
+
+		#try to encipher a simple message
+		msg = 'the quick brown fox Jumped OVER the la7y doogz'
+		ctxt = ec_el_gamal_enc(msg, P, N, pubkey)
+
+		#deciphering that should give msg
+		dec_msg = ec_el_gamal_dec(ctxt, privkey)
+		assert (dec_msg == msg)  #YEET
+
+
+	def test_ec_bday_attack(self):
+		E = EllipticCurve(103,1,1,1)
+		P = E(33, 86)
+		N = 9
+		b = 4
+		B = P*b
+
+		rb = ec_bday_attack(P,B,N,npoints=10)
+		assert(rb == b)
