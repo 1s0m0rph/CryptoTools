@@ -1,6 +1,5 @@
 from unittest import TestCase
-from crypto_tools import *
-
+from crypto_tools.interface import *
 
 class TestModInteger(TestCase):
 	def test_sqrt(self):
