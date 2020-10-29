@@ -1,5 +1,5 @@
 from unittest import TestCase
-from crypto_tools.interface import *
+from interface import *
 
 class TestModInteger(TestCase):
 	def test_sqrt(self):
@@ -175,7 +175,7 @@ class TestFiniteFields(TestCase):
 		a = FiniteFieldPoly(p, [8, 13, 9, 0, 16])
 		b = FiniteFieldPoly(p, [1, 0, 0, 0, 0, 0, 12, 14])
 
-		gcd = FFP_ext_eucl(a, b, just_gcd=True)
+		gcd = FFP_ext_eucl(a, b, gcd_only=True)
 		assert (gcd == 1)
 
 	def test_eval(self):

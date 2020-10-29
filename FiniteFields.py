@@ -1,4 +1,4 @@
-from crypto_tools.ModularArith import *
+from ModularArith import *
 
 FFP_SS_TRANS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")  #https://codeigo.com/python/printing-subscript-and-superscript
 
@@ -240,7 +240,7 @@ solve the the linear diophantine equation in Fp[x]:
 '''
 
 
-def FFP_ext_eucl(a, b, just_gcd=False):
+def FFP_ext_eucl(a, b, gcd_only=False):
 	assert (a.p == b.p)
 	ff = FiniteField(a.p)
 	acard = (ff(1), ff(0))  #how do we produce a?
@@ -261,7 +261,7 @@ def FFP_ext_eucl(a, b, just_gcd=False):
 		a = b
 		b = r
 
-	if just_gcd:
+	if gcd_only:
 		#special case for degree zero, but this should probably also exist in general...
 		if a.dgr == 0:
 			return ext_eucl_int(a.coef[0],a.p,gcd_only=True)
@@ -342,7 +342,7 @@ def poly_is_reducible(poly, n_fac_div=None):
 		#calculate the base mod f
 		h = f(1)<<e  #this is now the polynomial x^(p^(n_i))
 		h -= [1, 0]  #h is now the polynomial x^(p^(n_i)) - x
-		if ext_eucl_int(h.poly, poly, gcd_only=True) != 1:
+		if FFP_ext_eucl(h.poly, poly, gcd_only=True) != 1:
 			return True
 	return False
 

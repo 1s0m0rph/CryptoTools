@@ -51,13 +51,14 @@ ENGL_FREQ = [ENGL_FREQ_DICT[k] for k in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
 
 def long_divide(a,b):
 	q = a//b
-	if (a - q*b) < (b/2):
-		r = a - q*b
+	adiffr0 = a - q*b
+	adiff0 = abs(adiffr0)
+	adiffr1 = adiffr0 - b
+	adiff1 = abs(adiffr1)
+	if adiff0 < adiff1:
+		return q,adiffr0
 	else:
-		q += 1
-		r = q*b - a
-		q = -q
-	return q,r
+		return q+1,adiffr1
 
 
 '''

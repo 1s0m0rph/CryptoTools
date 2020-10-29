@@ -1,4 +1,4 @@
-from crypto_tools.ModularArith import *
+from ModularArith import *
 
 '''
 p-minus-one factoring method (in class 2020-10-09)
@@ -112,7 +112,7 @@ def get_qs_factor_base(n,B,kmax):
 		if (p,1) in fb:
 			#now modify the sieve so that we don't have to do any trial division
 			#this means we need to add powers of the primes in, which can be done using hensel's lemma
-			#we'll have solutions of the form s = r - (r^2 - n)*a mod p^k+1 where a == (2r)^-1 mod p
+			#we'll have solutions of the form s = r - (r^2 - n)*a mod p^(k+1) where a == (2r)^-1 mod p
 			#we only have to do this until p^k > kmax
 			k = 2
 			npki = p**2
@@ -132,7 +132,7 @@ def get_qs_factor_base(n,B,kmax):
 						inv_mod_p.update({ntinv.x:a})
 
 					#now find s
-					s = ModInteger(sqrt,npki) - ModInteger(a,npki)*(sqrt.x**2 - n)
+					s = ModInteger(sqrt.x,npki) - ModInteger(a,npki)*(sqrt.x**2 - n)
 					fb[(p,k)].add(s)
 				npki *= p
 				k += 1

@@ -1,4 +1,4 @@
-from crypto_tools.util_upper import *
+from util_upper import *
 
 class ModInteger:
 	def __init__(self, x, n, n_is_prime=False, phi_n=None):
@@ -53,7 +53,7 @@ class ModInteger:
 		other = self.pairwise_check(other)
 
 		#try running ext eucl to find an inverse, if we find that gcd(other,self) is not 1 then it won't work anyway
-		g, (l, _) = ext_eucl_int(other.x, other.n)
+		g, (l, _) = ext_eucl_int(other.x,-other.n)
 		if g != 1:
 			raise ZeroDivisionError(
 				"Dividend {} and modulus {} not coprime -- solutions will not be unique".format(other.x, self.n))
@@ -122,11 +122,11 @@ def ext_eucl_int(a,b,gcd_only=False):
 		a = a.x
 	if type(b) == ModInteger:
 		b = b.x
-	carda = np.array([1,0],dtype=int)
-	cardb = np.array([0,1],dtype=int)
+	carda = (1,0)
+	cardb = (0,1)
 
 	q,r = long_divide(a,b)
-	cardc = carda - (q*cardb)
+	cardc = (carda[0] - (q*cardb[0]),carda[1] - (q*cardb[1]))
 	carda = cardb
 	cardb = cardc
 	a = b
@@ -134,16 +134,20 @@ def ext_eucl_int(a,b,gcd_only=False):
 
 	while r != 0:
 		q, r = long_divide(a, b)
-		cardc = carda-(q*cardb)
+		cardc = (carda[0]-(q*cardb[0]), carda[1]-(q*cardb[1]))
 		carda = cardb
 		cardb = cardc
 		a = b
 		b = r
 
+	if a < 0:
+		a = -a
+		carda = (-carda[0],-carda[1])
+
 	if gcd_only:
 		return a
 	else:
-		return a,tuple(carda)
+		return a,carda
 
 
 '''

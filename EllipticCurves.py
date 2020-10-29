@@ -1,4 +1,4 @@
-from crypto_tools.FiniteFields import *
+from FiniteFields import *
 
 class EllipticPoint:
 
@@ -192,7 +192,7 @@ def elliptic_factor(n, initial_point=None, a=1, verbose=False, ret_mults_to_succ
 		P *= i
 		i += 1
 	#we have a winner
-	fac0 = gcd(P.x.x,n)
+	fac0 = ext_eucl_int(P.x.x,n,gcd_only=True)
 	fac1 = n//fac0
 	if ret_mults_to_success:
 		return fac0,fac1,i
@@ -257,7 +257,7 @@ def ec_bday_attack(P:EllipticPoint,B:EllipticPoint,N:int,npoints=None):
 	#make the lists
 	ks = [random.randint(1,N) for _ in range(npoints)]
 	ls = [random.randint(1,N) for _ in range(npoints)]
-	ls = [l for l in ls if (gcd(l,N) == 1)]#filter out the ones that won't work anyway (may be a smarter way to do this)
+	ls = [l for l in ls if (ext_eucl_int(l,N,gcd_only=True) == 1)]#filter out the ones that won't work anyway (may be a smarter way to do this)
 	pks = [P*k for k in ks]
 	bls = {B*l:l for l in ls}
 
