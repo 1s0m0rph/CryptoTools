@@ -1,4 +1,4 @@
-from ModularArith import *
+from crypto_tools.ModularArith import *
 
 '''
 p-minus-one factoring method (in class 2020-10-09)

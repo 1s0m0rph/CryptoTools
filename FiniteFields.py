@@ -1,4 +1,4 @@
-from ModularArith import *
+from crypto_tools.ModularArith import *
 
 FFP_SS_TRANS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")  #https://codeigo.com/python/printing-subscript-and-superscript
 

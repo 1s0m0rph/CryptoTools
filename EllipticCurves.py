@@ -1,4 +1,4 @@
-from FiniteFields import *
+from crypto_tools.FiniteFields import *
 
 class EllipticPoint:
 

@@ -1,4 +1,4 @@
-from util_upper import *
+from crypto_tools.util_upper import *
 
 class ModInteger:
 	def __init__(self, x, n, n_is_prime=False, phi_n=None):

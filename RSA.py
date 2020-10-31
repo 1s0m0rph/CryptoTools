@@ -1,4 +1,4 @@
-from ModularArith import *
+from crypto_tools.ModularArith import *
 
 def RSA_keygen_dec(prime_digits):
 	return RSA_keygen(int(prime_digits*(1/np.log10(2))))

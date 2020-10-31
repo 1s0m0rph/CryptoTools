@@ -1,4 +1,4 @@
-from ModularArith import *
+from crypto_tools.ModularArith import *
 
 def vig_enc(msg, key):
 	msg = remove_non_alphanum(msg)
