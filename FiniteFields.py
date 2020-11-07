@@ -540,3 +540,36 @@ def FFPMM_mult_table_tex(p, m):
 		print("{}\\\\\\hline".format(row[-1]))
 	print(r"\end{tabular}")
 	print(r"\end{center}")
+
+
+def FFP_with_random_coefs(p:int,max_dgr:int,mag_bound:int=None,m:FiniteFieldPoly=None):
+	def coefs_in_range(poly:FiniteFieldPolyModM):
+		for coef in poly.poly.coef:
+			if not ((coef.x <= mag_bound) or ((-coef).x <= mag_bound)):
+				return False
+		return True
+
+	if (m is not None) and (m.p != p):
+		raise ValueError("Randomly generated polynomial will not be modulo the same prime as the poly-modulus")
+	#generate some random coefficients
+	if mag_bound is None:
+		coefs = [ModInteger(random.randint(0,p),p) for _  in range(max_dgr+1)]#include constant coef as well
+	else:
+		#could check that mag_bound isn't too high but it won't cause any huge issues
+		if mag_bound >= p:
+			print("WARNING: random coefficient smallnes bound is greater than coefficient modulus ({} >= {})".format(mag_bound,p))
+		coefs = [ModInteger(random.randint(-mag_bound,mag_bound),p) for _ in range(max_dgr+1)]
+
+	#make a poly with those coefs
+	if m is None:
+		return FiniteFieldPoly(p,coefs)
+	else:
+		poly = FiniteFieldPolyModM(p,m,coefs)#have to do some extra stuff since modding out can mess with our coefficient ranges
+		if mag_bound is not None:
+			if not coefs_in_range(poly):
+				#just try again (this will *probably* work)
+				return FFP_with_random_coefs(p,max_dgr,mag_bound=mag_bound,m=m)
+			else:
+				return poly
+		else:
+			return poly

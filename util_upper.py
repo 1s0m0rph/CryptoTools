@@ -8,7 +8,7 @@ basic principle with this file: if it CAN go here (i.e. no missing references) i
 
 
 #all project imports go here
-from typing import Union, List
+from typing import Union, List, Tuple
 
 import numpy as np
 from sympy import Matrix
