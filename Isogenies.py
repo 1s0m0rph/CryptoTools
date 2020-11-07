@@ -1,4 +1,4 @@
-from EllipticCurves import *
+from crypto_tools.EllipticCurves import *
 
 """
 main goal here is to implement at least a rudimentary version of SIDH or (ideally) CSIDH

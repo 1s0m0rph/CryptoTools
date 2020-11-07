@@ -5,9 +5,10 @@ FFP_SS_TRANS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")  #http
 
 class FiniteFieldPoly:
 
-	def __init__(self, p: int, coef, print_as_latex=False):
+	def __init__(self, p: int, coef, print_as_latex=False, print_for_pyinput=False):
 		self.p = p
 		self.print_as_latex = print_as_latex
+		self.print_for_pyinput = print_for_pyinput
 		#build c, being careful with typing
 		if type(coef) == FiniteFieldPoly:
 			self.coef = coef.coef.copy()
@@ -30,7 +31,7 @@ class FiniteFieldPoly:
 
 	def pairwise_check(self, other):
 		if type(other) != FiniteFieldPoly:
-			other = FiniteFieldPoly(self.p, other, self.print_as_latex)
+			other = FiniteFieldPoly(self.p, other, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 			return other, self.ext_low_degree(other)  #all checks will succeed this way, so don't do them
 		return other, self.ext_low_degree(other)
 
@@ -47,6 +48,17 @@ class FiniteFieldPoly:
 			fnst = fnst[:-3]  #drop last +
 
 			return fnst.replace('[', '{').replace(']', "}")+"$"
+		elif self.print_for_pyinput:
+			fnst = ""
+			for i,c in enumerate(self.coef):
+				if (c.x != 0) or (len(self.coef) == 1):
+					fnst += ('' if ((c.x == 1) and (i != (len(self.coef)-1))) else "{}".format(c.x))+(
+						"x" if (i != ((len(self.coef)-1))) else "")+(
+								"**({})".format(len(self.coef)-i-1) if i < len(self.coef)-2 else "")+" + "
+
+			fnst = fnst[:-3]  #drop last +
+
+			return fnst
 		else:
 			fnst = ""
 			for i, c in enumerate(self.coef):
@@ -69,24 +81,24 @@ class FiniteFieldPoly:
 
 	def __add__(self, other):
 		other, (ldgc_ext, hdgc, _) = self.pairwise_check(other)
-		return FiniteFieldPoly(self.p, ldgc_ext+hdgc, self.print_as_latex)
+		return FiniteFieldPoly(self.p, ldgc_ext+hdgc, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 
 	def __neg__(self):
 		#just negate all the coefficients
-		return FiniteFieldPoly(self.p, -self.coef, self.print_as_latex)
+		return FiniteFieldPoly(self.p, -self.coef, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 
 	def __sub__(self, other):
 		other, (ldgc_ext, hdgc, lis) = self.pairwise_check(other)
 		if lis:
-			return FiniteFieldPoly(self.p, ldgc_ext-hdgc, self.print_as_latex)
+			return FiniteFieldPoly(self.p, ldgc_ext-hdgc, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 		else:
-			return FiniteFieldPoly(self.p, hdgc-ldgc_ext, self.print_as_latex)
+			return FiniteFieldPoly(self.p, hdgc-ldgc_ext, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 
 	def __lshift__(self, other: int):
-		return FiniteFieldPoly(self.p, list(self.coef)+[0 for _ in range(other)], self.print_as_latex)
+		return FiniteFieldPoly(self.p, list(self.coef)+[0 for _ in range(other)], print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 
 	def __rshift__(self, other: int):
-		return FiniteFieldPoly(self.p, list(self.coef[:-other]), self.print_as_latex)
+		return FiniteFieldPoly(self.p, list(self.coef[:-other]), print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 
 	'''
 	happy happy fun times
@@ -111,23 +123,23 @@ class FiniteFieldPoly:
 	def __mul__(self, other):
 		if (type(other) in [ModInteger, int]):
 			#special case for scaling
-			return FiniteFieldPoly(self.p, self.coef*other, self.print_as_latex)
+			return FiniteFieldPoly(self.p, self.coef*other, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 		other, (ldgc_ext, hdgc, _) = self.pairwise_check(other)
 		if len(other.coef) == 1:
-			return FiniteFieldPoly(self.p, (self*other.coef[0]).coef, self.print_as_latex)
+			return FiniteFieldPoly(self.p, (self*other.coef[0]).coef, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 		if len(self.coef) == 1:
-			return FiniteFieldPoly(self.p, (other*self.coef[0]).coef, self.print_as_latex)
+			return FiniteFieldPoly(self.p, (other*self.coef[0]).coef, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 		a = hdgc
 		b = ldgc_ext
 		if len(a) == 1:
-			return FiniteFieldPoly(self.p, [a[0]*b[0]], self.print_as_latex)
+			return FiniteFieldPoly(self.p, [a[0]*b[0]], print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 		#otherwise reduce with karatsuba
 		m = len(a)-1
-		a0 = FiniteFieldPoly(self.p, a[1:], self.print_as_latex)  #drop the first one since that is a1
+		a0 = FiniteFieldPoly(self.p, a[1:], print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)  #drop the first one since that is a1
 		a1 = a[0]
-		b0 = FiniteFieldPoly(self.p, b[1:], self.print_as_latex)
+		b0 = FiniteFieldPoly(self.p, b[1:], print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 		b1 = b[0]
-		z2 = FiniteFieldPoly(self.p, a1*b1, self.print_as_latex)  #cheap and easy because a1 and b1 are just constants
+		z2 = FiniteFieldPoly(self.p, a1*b1, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)  #cheap and easy because a1 and b1 are just constants
 		z2scale = z2<<(2*m)  #z2 * B^(2m)
 		z0 = a0*b0
 		z1 = (a0-a1)*((-b0)+b1)+z2+z0  #this is not infinite since we've reduced the length for a1 and b1
@@ -167,7 +179,7 @@ class FiniteFieldPoly:
 		return q, r
 
 	def __reversed__(self):
-		return FiniteFieldPoly(self.p, reversed(self.coef), self.print_as_latex)
+		return FiniteFieldPoly(self.p, reversed(self.coef), print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 
 	'''
 	actually evaluate this polynomial
@@ -198,9 +210,8 @@ class FiniteFieldPoly:
 	'''
 
 	def NR_invert(self):
-		d = FiniteFieldPoly(self.p, reversed([0]+list(self.coef)),
-							self.print_as_latex)  #now we're thinking of this as though its highest term actually has exponent -1 (which acts like 1) technically there's also an x^0 term but since that didn't exist originally we initialize it as zero
-		x = FiniteFieldPoly(self.p, 1, self.print_as_latex)
+		d = FiniteFieldPoly(self.p, reversed([0]+list(self.coef)), print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)  #now we're thinking of this as though its highest term actually has exponent -1 (which acts like 1) technically there's also an x^0 term but since that didn't exist originally we initialize it as zero
+		x = FiniteFieldPoly(self.p, 1, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 		while x.dgr <= self.dgr:  #this should work as an upper bound since we'll have remainder with degree not larger than ourself
 			#do the NR update
 			x = x*((-d*x)+2)
@@ -386,21 +397,22 @@ Finite field polynomial modulo m(x)
 
 class FiniteFieldPolyModM:
 
-	def __init__(self, p: int, m: FiniteFieldPoly, coef, print_as_latex=False):
+	def __init__(self, p: int, m: FiniteFieldPoly, coef, print_as_latex=False, print_for_pyinput=False):
 		assert (m.p == p)
 		self.m = m  #we'll take it for granted that this is irreducible for now TODO check & make generator?
 		self.p = p
 		self.print_as_latex = print_as_latex
+		self.print_for_pyinput = print_for_pyinput
 		if type(coef) == FiniteFieldPoly:
 			self.poly = coef
 		else:
-			self.poly = FiniteFieldPoly(self.p, coef, self.print_as_latex)
+			self.poly = FiniteFieldPoly(self.p, coef, print_as_latex=self.print_as_latex,print_for_pyinput=print_for_pyinput)
 		#now mod that with m
 		self.poly = mod_poly(self.poly, self.m)
 		self.inv = None  #cache this
 
 	def __repr__(self):
-		if self.print_as_latex:
+		if self.print_as_latex or self.print_for_pyinput:
 			return "{}".format(self.poly)
 		else:
 			m_fmt = "{}".format(self.m)
@@ -409,7 +421,7 @@ class FiniteFieldPolyModM:
 
 	def pairwise_check(self, other):
 		if type(other) != FiniteFieldPolyModM:
-			other = FiniteFieldPolyModM(self.p, self.m, other, self.print_as_latex)
+			other = FiniteFieldPolyModM(self.p, self.m, other, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 			return other
 		if other.p != self.p:
 			raise AttributeError("Polynomials are in different fields")
@@ -419,7 +431,7 @@ class FiniteFieldPolyModM:
 
 	def bin_op_std(self, other, op):
 		other = self.pairwise_check(other)
-		return FiniteFieldPolyModM(self.p, self.m, op(self.poly, other.poly), self.print_as_latex)
+		return FiniteFieldPolyModM(self.p, self.m, op(self.poly, other.poly), print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 
 	def __eq__(self, other):
 		other = self.pairwise_check(other)
@@ -432,7 +444,7 @@ class FiniteFieldPolyModM:
 		return self.bin_op_std(other, lambda x, y: x-y)
 
 	def __neg__(self):
-		return FiniteFieldPolyModM(self.p, self.m, -self.poly, self.print_as_latex)
+		return FiniteFieldPolyModM(self.p, self.m, -self.poly, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 
 	def __mul__(self, other):
 		return self.bin_op_std(other, lambda x, y: x*y)
@@ -442,14 +454,14 @@ class FiniteFieldPolyModM:
 
 	def __lshift__(self, other: int):
 		#keep going until the degree gets bigger than m, then mod, mod again at the end
-		res = FiniteFieldPoly(self.p, self.poly, self.print_as_latex)  #copy
+		res = FiniteFieldPoly(self.p, self.poly, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)  #copy
 		k = 0
 		while k < other:
 			shift_amt = min(other-k, self.m.dgr-res.dgr)  #this is the exact required amount
 			res <<= shift_amt
 			res = mod_poly(res, self.m)
 			k += shift_amt
-		return FiniteFieldPolyModM(self.p, self.m, res, self.print_as_latex)
+		return FiniteFieldPolyModM(self.p, self.m, res, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 
 	'''
 	find the multiplicative inverse of self mod m (ext eucl)
@@ -463,7 +475,7 @@ class FiniteFieldPolyModM:
 		g, (self_inv, _) = FFP_ext_eucl(self.poly, -self.m)
 		if g != 1:
 			raise AttributeError("GCD of modulus and polynomial is not <1>, no inverse exists")
-		si = FiniteFieldPolyModM(self.p, self.m, self_inv, self.print_as_latex)
+		si = FiniteFieldPolyModM(self.p, self.m, self_inv, print_as_latex=self.print_as_latex, print_for_pyinput=self.print_for_pyinput)
 		si.inv = self
 		self.inv = si
 		return si
@@ -491,10 +503,10 @@ pingala implementation for finite fields
 def ping_FF(fp: Union[FiniteFieldPoly, FiniteFieldPolyModM], e: int):
 	if type(fp) == FiniteFieldPoly:
 		poly = fp
-		res = FiniteFieldPoly(poly.p, poly.coef, poly.print_as_latex)
+		res = FiniteFieldPoly(poly.p, poly.coef, poly.print_as_latex, poly.print_for_pyinput)
 	else:
 		poly = fp.poly
-		res = FiniteFieldPolyModM(fp.p, fp.m, fp.poly, fp.print_as_latex)
+		res = FiniteFieldPolyModM(fp.p, fp.m, fp.poly, fp.print_as_latex, poly.print_for_pyinput)
 
 	eb_st = bin(e)[3:]  #drop the '0b' as well as the first bit since it's always a 1
 	for bit in eb_st:
@@ -542,7 +554,7 @@ def FFPMM_mult_table_tex(p, m):
 	print(r"\end{center}")
 
 
-def FFP_with_random_coefs(p:int,max_dgr:int,mag_bound:int=None,m:FiniteFieldPoly=None):
+def FFP_with_random_coefs(p:int,max_dgr:int,mag_bound:int=None,m:FiniteFieldPoly=None,**kwargs):
 	def coefs_in_range(poly:FiniteFieldPolyModM):
 		for coef in poly.poly.coef:
 			if not ((coef.x <= mag_bound) or ((-coef).x <= mag_bound)):
@@ -562,9 +574,11 @@ def FFP_with_random_coefs(p:int,max_dgr:int,mag_bound:int=None,m:FiniteFieldPoly
 
 	#make a poly with those coefs
 	if m is None:
-		return FiniteFieldPoly(p,coefs)
+		G = FiniteField(p,**kwargs)
+		return G(coefs)
 	else:
-		poly = FiniteFieldPolyModM(p,m,coefs)#have to do some extra stuff since modding out can mess with our coefficient ranges
+		G = FiniteFieldModM(p,m,**kwargs)
+		poly = G(coefs)#have to do some extra stuff since modding out can mess with our coefficient ranges
 		if mag_bound is not None:
 			if not coefs_in_range(poly):
 				#just try again (this will *probably* work)

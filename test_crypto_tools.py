@@ -380,6 +380,11 @@ class TestRLWE(TestCase):
 		for c in private_key.poly.coef:
 			assert((c.x <= R) or ((-c).x <= R))
 
+		#input stuff
+		S = RLWE(p,n,k,R,print_for_pyinput=True)
+		s,a,b = S.generate_keypair()
+		pass#this is really just for debug mode
+
 
 	def test_single_message_en_decrypt(self):
 		#baby example from the notes 2020-11-06

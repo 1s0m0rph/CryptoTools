@@ -2,7 +2,7 @@
 Lattice-based cryptography. Mostly just ring- learning with errors
 """
 
-from FiniteFields import *
+from crypto_tools.FiniteFields import *
 
 
 class RLWE:
@@ -10,22 +10,23 @@ class RLWE:
 	Used to set up an RLWE-system with the prior public info
 	"""
 
-	def __init__(self,p:int,n:int,k:int,smallness_bound:int):
+	def __init__(self,p:int,n:int,k:int,smallness_bound:int,**ffp_kwargs):
 		self.p = p
 		self.n = n
 		self.msg_lim = p//k#p is prime so highest possible number is just floor(p/k) (unless k is 1, which wouldn't work anyway)
 		self.k = k
-		self.m = FiniteFieldPoly(p,[1] + ([0]*(n-1)) + [1])#assume the default modulus of x^n + 1
+		self.m = FiniteFieldPoly(p,[1]+([0]*(n-1))+[1],**ffp_kwargs)#assume the default modulus of x^n + 1
 		self.R = smallness_bound
+		self.ffp_kwargs = ffp_kwargs
 
-		self.FFPM = FiniteFieldModM(p,self.m)
+		self.FFPM = FiniteFieldModM(p,self.m,**ffp_kwargs)
 
 	'''
 	allow for predefined private keys
 	'''
 	def generate_keypair(self,private_key:Union[FiniteFieldPoly,FiniteFieldPolyModM]=None) -> (FiniteFieldPolyModM,FiniteFieldPolyModM,FiniteFieldPolyModM):
 		if private_key is None:
-			private_key = FFP_with_random_coefs(self.p,self.n,mag_bound=self.R,m=self.m)
+			private_key = FFP_with_random_coefs(self.p,self.n,mag_bound=self.R,m=self.m,**self.ffp_kwargs)
 		if type(private_key) != FiniteFieldPolyModM:
 			private_key = self.FFPM(private_key)
 		elif private_key.m != self.m:
@@ -34,8 +35,8 @@ class RLWE:
 		assert(private_key.poly.dgr <= self.n)
 
 		#now set up the public key (a,b) where b = as + e
-		a = FFP_with_random_coefs(self.p,self.n-1,m=self.m)#random a (NOT small)
-		e = FFP_with_random_coefs(self.p,self.n-1,mag_bound=self.R,m=self.m)#random error (small)
+		a = FFP_with_random_coefs(self.p,self.n-1,m=self.m,**self.ffp_kwargs)#random a (NOT small)
+		e = FFP_with_random_coefs(self.p,self.n-1,mag_bound=self.R,m=self.m,**self.ffp_kwargs)#random error (small)
 
 		#now create b
 		b = (a*private_key) + e
@@ -60,10 +61,10 @@ class RLWE:
 		self.check_polys_are_in_system([a,b])
 
 		#pick ephemeral key r (small)
-		r = FFP_with_random_coefs(self.p,self.n-1,self.R,self.m)
+		r = FFP_with_random_coefs(self.p,self.n-1,self.R,self.m,**self.ffp_kwargs)
 		#pick two small errors
-		e1 = FFP_with_random_coefs(self.p,self.n-1,self.R,self.m)
-		e2 = FFP_with_random_coefs(self.p,self.n-1,self.R,self.m)
+		e1 = FFP_with_random_coefs(self.p,self.n-1,self.R,self.m,**self.ffp_kwargs)
+		e2 = FFP_with_random_coefs(self.p,self.n-1,self.R,self.m,**self.ffp_kwargs)
 
 		#define v and w (ciphertext)
 		v = (a*r) + e1
