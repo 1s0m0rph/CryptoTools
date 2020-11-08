@@ -1,3 +1,5 @@
+from typing import Callable
+
 from crypto_tools.ModularArith import *
 
 FFP_SS_TRANS = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")  #https://codeigo.com/python/printing-subscript-and-superscript
@@ -53,6 +55,7 @@ class FiniteFieldPoly:
 			for i,c in enumerate(self.coef):
 				if (c.x != 0) or (len(self.coef) == 1):
 					fnst += ('' if ((c.x == 1) and (i != (len(self.coef)-1))) else "{}".format(c.x))+(
+						"*" if (c.x != 1) else "" +
 						"x" if (i != ((len(self.coef)-1))) else "")+(
 								"**({})".format(len(self.coef)-i-1) if i < len(self.coef)-2 else "")+" + "
 
@@ -64,9 +67,8 @@ class FiniteFieldPoly:
 			for i, c in enumerate(self.coef):
 				if (c.x != 0) or (len(self.coef) == 1):
 					fnst += ('' if ((c.x == 1) and (i != (len(self.coef)-1))) else "{}".format(c.x))+(
-						"x" if (i != ((len(self.coef)-1))) else "")+(
-								"{}".format(len(self.coef)-i-1).translate(FFP_SS_TRANS) if i < len(
-									self.coef)-2 else "")+" + "
+						"x" if (i < self.dgr) else "")+(
+								"{}".format(self.dgr-i).translate(FFP_SS_TRANS) if i < self.dgr-1 else "")+" + "
 
 			fnst = fnst[:-3]  #drop last +
 
@@ -288,7 +290,7 @@ def FFP_ext_eucl(a, b, gcd_only=False):
 
 
 def FiniteField(p, **kwargs):
-	def gffp(coef):
+	def gffp(coef) -> FiniteFieldPoly:
 		return FiniteFieldPoly(p, coef, **kwargs)
 
 	return gffp
@@ -489,7 +491,7 @@ class FiniteFieldPolyModM:
 
 
 def FiniteFieldModM(p, m, **kwargs):
-	def get(coef):
+	def get(coef) -> FiniteFieldModM:
 		return FiniteFieldPolyModM(p, m, coef, **kwargs)
 
 	return get

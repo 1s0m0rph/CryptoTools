@@ -447,3 +447,15 @@ class TestRLWE(TestCase):
 
 		assert(msg_rec == msg_orig)
 
+		#since this didn't work in practice for some reason...
+		F = FiniteFieldModM(p,S.m)
+		s = F([-1,-1,1,0,0,0,-1,-1])
+		v = F([58354816316,4597505578,27080648777,40612538177,17748688086,76669112944,13884701424,83476093754])
+		w = F([16355995873,57085269629,78735228696,14962111776,68677880351,40726763122,56444467681,58393960943])
+		msg_orig = 'key'
+
+		ctxt = [(v,w)]
+		msg_rec = S.decrypt(ctxt,s)
+
+		assert(msg_rec == msg_orig)
+
