@@ -79,12 +79,11 @@ class ModInteger:
 		return self.x
 
 	'''
-		give *a* square root modulo n of self, if one exists (if we find one, others may still exist e.g. -a)
+	give *a* square root modulo n of self, if one exists (if we find one, others may still exist e.g. -a)
 
-		brute-force iff modulo a non prime or p == 1 mod 8
-		else with euler-criterion-like methods
-		'''
-
+	brute-force iff modulo a non prime or p == 1 mod 8
+	else with euler-criterion-like methods
+	'''
 	def sqrt(self, fast_only=False):
 		if (self == 0) or (self == 1):  #always squares to itself (this handles the mod 2 case and many others)
 			return self
@@ -115,7 +114,18 @@ class ModInteger:
 			if rt == 0:
 				return None
 			return rt
-		return None  #just being explicit (this means root doeas not exist)
+		return None  #just being explicit (this means root does not exist)
+
+
+	def multiplicative_order(self):
+		#hard to beat brute force
+		k = 1
+		res = self
+		one = ModInteger(1,self.n,self.n_is_prime,self.phi_n)
+		while res != one:
+			res *= self
+			k += 1
+		return k
 
 def ext_eucl_int(a,b,gcd_only=False):
 	if type(a) == ModInteger:
@@ -313,9 +323,8 @@ def gauss_invert(a,p):
 	return inv_acc
 
 
-def naive_fac(n):
+def naive_fac(n,full=False):
 	pl = primes(int(math.sqrt(n))+1)
-	ps = set(pl)
 	f = []
 	while not isprime(n):
 		#find the lowest prime that divides n and add it to the set, then divide n by that prime
@@ -325,6 +334,8 @@ def naive_fac(n):
 				n //= p
 				break
 	f.append(n)
+	if full:
+		return f
 	return set(f)
 
 

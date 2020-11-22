@@ -37,6 +37,25 @@ class TestModInteger(TestCase):
 			assert ((res**2) == x2)  #the plus/minus x thing is only true mod a prime
 
 
+	def test_mult_order(self):
+		n = 7
+		R = IntegerModRing(n)
+		a = R(3)
+
+		assert(a.multiplicative_order() == 6)
+
+		a = R(2)
+
+		assert(a.multiplicative_order() == 3)
+
+		n = 1001
+		R = IntegerModRing(n)
+		a = R(101)
+
+		assert(a.multiplicative_order() == 30)
+
+
+
 class Test(TestCase):
 	def test_get_qs_factor_base(self):
 		#just use the lecture notes example for now
