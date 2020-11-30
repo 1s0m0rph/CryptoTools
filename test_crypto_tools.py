@@ -478,3 +478,53 @@ class TestRLWE(TestCase):
 
 		assert(msg_rec == msg_orig)
 
+class TestRational(TestCase):
+	def test_add(self):
+		x = Rational(11,8)
+		y = Rational(53,200)
+
+		s = x + y
+		assert(s == Rational(41,25))
+
+	def test_sub(self):
+		x = Rational(11,8)
+		y = Rational(53,200)
+
+		d = x-y
+		assert (d == Rational(111,100))
+
+	def test_inv(self):
+		x = Rational(11,8)
+
+		ix = ~x
+		assert(ix == Rational(8,11))
+
+	def test_div(self):
+		x = Rational(11,8)
+		y = Rational(53,200)
+
+		d = x/y
+		assert (d == Rational(275,53))
+
+
+	def test_continued_frac_convergents(self):
+		x = Rational(17,39)
+
+		convs = continued_frac_convergents(x)
+		econvs = [Rational(0,1),
+				  Rational(1,2),
+				  Rational(3,7),
+				  Rational(7,16),
+				  Rational(17,39)]
+
+		assert(convs == econvs)
+
+		x = Rational(275,53)
+
+		convs = continued_frac_convergents(x)
+		econvs = [Rational(5,1),
+				  Rational(26,5),
+				  Rational(83,16),
+				  Rational(275,53)]
+
+		assert (convs == econvs)

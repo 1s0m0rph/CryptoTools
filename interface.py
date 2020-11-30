@@ -11,6 +11,7 @@ from crypto_tools.RSA import *
 from crypto_tools.Isogenies import *
 from crypto_tools.EllipticCurves import *
 from crypto_tools.Lattices import *
+from crypto_tools.RationalArith import *
 
 def ext_eucl(a,b,gcd_only=False):
 	if type(a) == FiniteFieldPoly:
