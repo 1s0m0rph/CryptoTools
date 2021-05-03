@@ -569,3 +569,7 @@ class TestRational(TestCase):
 		x_i,x_ni = x.p_expansion(13)
 		assert (x_i_exp == x_i)
 		assert (x_ni_exp == x_ni)
+
+		x = Rational(1,2)
+
+		assert(str(x) == '0.5')

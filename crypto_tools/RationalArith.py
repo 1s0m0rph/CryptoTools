@@ -56,7 +56,7 @@ class Rational:
 	def __repr__(self):
 		if self.dec_display_digits != -1:
 			ipart,nipart = self.p_expansion(self.dec_display_digits)#todo might want to not hardcode ten digits of precision here
-			st = str(ipart) + '.' + ''.join(nipart)
+			st = str(ipart) + '.' + ''.join([str(x) for x in nipart])
 			#drop trailing zeroes and we're done
 			while (len(st) > 1) and ((st[-1] == '0') or (st[-1] == '.')):
 				st = st[:-1]
