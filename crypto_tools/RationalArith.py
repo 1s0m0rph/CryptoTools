@@ -15,6 +15,8 @@ class Rational:
 	* iff rat_reduce is set to true
 	"""
 
+	FLOAT_APPROX_CONV_NUM = -1#what convergent will we use when converting from a float?
+
 	'''
 	if dec_display_digits is set to -1, we'll show as "a/b". otherwise we'll print as a decimal number out to that (max) precision
 	'''
@@ -32,7 +34,7 @@ class Rational:
 		if type(other) in [int,np.int32,np.int64]:
 			other = Rational(other,1,rat_reduce=False,dec_display_digits=self.dec_display_digits)
 		elif type(other) in [float,np.float64]:
-			other = continued_frac_approx_convergents(other)[-1]
+			other = continued_frac_approx_convergents(other)[self.FLOAT_APPROX_CONV_NUM]
 		return other
 
 	def __add__(self,other):
@@ -55,11 +57,7 @@ class Rational:
 
 	def __repr__(self):
 		if self.dec_display_digits != -1:
-			ipart,nipart = self.p_expansion(self.dec_display_digits)#todo might want to not hardcode ten digits of precision here
-			st = str(ipart) + '.' + ''.join([str(x) for x in nipart])
-			#drop trailing zeroes and we're done
-			while (len(st) > 1) and ((st[-1] == '0') or (st[-1] == '.')):
-				st = st[:-1]
+			st = self.p_exp_st(self.dec_display_digits)
 			return st
 		else:
 			if self.b == 0:
@@ -126,6 +124,20 @@ class Rational:
 
 		return i_part,rats
 
+	def p_exp_st(self,k,base=10):
+		ipart,nipart = self.p_expansion(k,base=base)
+		#drop trailing zeroes
+		while (len(nipart) > 0) and (nipart[-1] == 0):
+			nipart = nipart[:-1]
+		st = str(ipart)
+		if len(nipart) > 0:
+			if base <= 10:
+				st += '.' + ''.join([str(x) for x in nipart])
+			else:
+				st += '.' + ''.join(['(' + str(x) + ')' for x in nipart])
+
+		return st
+
 def st_idx_fuzzy(st,x):
 	try:
 		ret = st.index(x)
@@ -136,25 +148,25 @@ def st_idx_fuzzy(st,x):
 '''
 parse rational
 '''
-def rp(x:Union[str,int,float,Rational]):
+def rp(x:Union[str,int,float,Rational],dec_display_digits=10):
 	if type(x) == int:
-		return Rational(x,1)
+		return Rational(x,1,dec_display_digits=dec_display_digits)
 	if type(x) == float:
-		return Rational(1,1)*x
+		return Rational(1,1,dec_display_digits=dec_display_digits)*x
 	if type(x) == Rational:
 		return x
 	if type(x) == str:
 		decpt = st_idx_fuzzy(x,'.')
 		if decpt is not None:
-			return Rational(1,1)*float(x)
+			return Rational(1,1,dec_display_digits=dec_display_digits)*float(x)
 		divl = st_idx_fuzzy(x,'/')
 		if divl is None:
-			return Rational(int(x),1)
+			return Rational(int(x),1,dec_display_digits=dec_display_digits)
 
 		#now do a proper parsing
 		num = x[:divl]
 		denom = x[divl+1:]
-		return Rational(int(num),int(denom))
+		return Rational(int(num),int(denom),dec_display_digits=dec_display_digits)
 
 def eval_convergents(cidxs:List[int]):
 	res = Rational(cidxs[-1],1)
