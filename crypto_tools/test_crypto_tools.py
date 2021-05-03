@@ -530,7 +530,20 @@ class TestRational(TestCase):
 		assert (convs == econvs)
 
 	def test_rp(self):
-		pass
+		x = rp('1/2')
+
+		assert(x.a == 1)
+		assert(x.b == 2)
+
+		x = rp('12')
+
+		assert(x.a == 12)
+		assert(x.b == 1)
+
+		x = rp('2/2')
+
+		assert(x.a == 1)
+		assert(x.b == 1)
 
 	def test_p_expansion(self):
 		x = Rational(1,3)
