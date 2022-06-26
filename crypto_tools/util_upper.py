@@ -49,13 +49,19 @@ ENGL_FREQ_DICT = {'A':0.082,
 ENGL_FREQ = [ENGL_FREQ_DICT[k] for k in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
 
 
-def long_divide(a,b):
+def long_divide(a,b,non_neg_rem=False):
+	"""
+	give integers q,r such that b*q + r = a
+	
+	if non_neg_rem is set, r will always be nonnegative. otherwise, will return the q,r pair with the smallest (absolute value) remainder
+	"""
+
 	q = a//b
 	adiffr0 = a - q*b
 	adiff0 = abs(adiffr0)
 	adiffr1 = adiffr0 - b
 	adiff1 = abs(adiffr1)
-	if adiff0 < adiff1:
+	if (adiff0 < adiff1) or (non_neg_rem):
 		return q,adiffr0
 	else:
 		return q+1,adiffr1
