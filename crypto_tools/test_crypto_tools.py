@@ -573,3 +573,27 @@ class TestRational(TestCase):
 		x = Rational(1,2)
 
 		assert(str(x) == '0.5')
+	
+	def test_cont_frac(self):
+	
+		# couple basic tests
+		
+		x = Rational(1,2)
+		cont_frac_expected = [0,2]
+		cont_frac_actual = x.cont_frac()
+		
+		self.assertEqual(cont_frac_expected,cont_frac_actual)
+		
+		x = Rational(5681, 28892)
+		cont_frac_expected = [0,5,11,1,1,1,80,2]
+		cont_frac_actual = x.cont_frac()
+		self.assertEqual(cont_frac_expected,cont_frac_actual)
+		
+		# test rp and this function against each other
+		for _ in range(100):
+			rat = Rational(random.randint(-1000,1000),random.randint(1,1000))
+			cf = rat.cont_frac()
+			checkv = rp(cf)
+			
+			self.assertEqual(checkv,rat)
+			

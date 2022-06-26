@@ -137,6 +137,48 @@ class Rational:
 				st += '.' + ''.join(['(' + str(x) + ')' for x in nipart])
 
 		return st
+	
+	
+	def cont_frac(self,final_elt_one=False):
+		"""
+		provide the continued fraction sequence for self:
+		xvec = <x0,x1,x2,...,xk> such that
+		x = x0 + 1/(x1 + 1/(x2 + 1/(... + 1/xk)))
+		
+		with the following properties:
+			x0 is an integer
+			xi (for all 0 < i <= k) is a positive integer
+		
+		if the optional final element =1 flag is set, xk is guaranteed to equal one (i.e. continue evaluating all the way). otherwise it is guaranteed to not equal one (unless k = 0)
+		"""
+		
+		xvec = []
+		# copy numerator/denominator since we're going to compute using these
+		a = self.a
+		b = self.b
+		
+		while a != 1:
+			# LDA
+			q,r = long_divide(a,b,non_neg_rem=True)
+			# we now have q,r such that b*q + r = a
+			# thus, the rat a/b can be written as q + (r/b) or q + 1/(b/r)
+			# thus, q is the next element of the x-vector, and the next pair we'll perform the algorithm step on will be b/r
+			xvec.append(q)
+			a = b
+			b = r
+			#TODO I think we'd need one more step for when final elt one is true
+		
+		return xvec
+	
+	def disp_cf(self,final_elt_one=False):
+		"""
+		display self as a continued fraction
+		"""
+		
+		raise NotImplementedError()
+		#TODO
+		
+		pass
 
 def st_idx_fuzzy(st,x):
 	try:
@@ -148,7 +190,7 @@ def st_idx_fuzzy(st,x):
 '''
 parse rational
 '''
-def rp(x:Union[str,int,float,Rational],dec_display_digits=10):
+def rp(x:Union[str,int,float,Rational,List[int]],dec_display_digits=-1):
 	if type(x) == int:
 		return Rational(x,1,dec_display_digits=dec_display_digits)
 	if type(x) == float:
@@ -167,6 +209,15 @@ def rp(x:Union[str,int,float,Rational],dec_display_digits=10):
 		num = x[:divl]
 		denom = x[divl+1:]
 		return Rational(int(num),int(denom),dec_display_digits=dec_display_digits)
+	if type(x) == list:
+		# assume this is a cont frac list
+		ratv = Rational(x[-1],1,dec_display_digits=dec_display_digits)
+		for vec_elt in reversed(x[:-1]):
+			# set equal to vec_elt + 1/<current value>
+			ratv = Rational(1,1,dec_display_digits=dec_display_digits) / ratv
+			ratv += Rational(vec_elt,1,dec_display_digits=dec_display_digits)
+		
+		return ratv
 
 def eval_convergents(cidxs:List[int]):
 	res = Rational(cidxs[-1],1)
@@ -203,3 +254,4 @@ def continued_frac_approx_convergents(x:Union[float,np.float64],w=100) -> List[R
 	rat = Rational(ratxnum,1<<w)+i
 	convs = continued_frac_convergents(rat)
 	return convs
+
